@@ -60,6 +60,32 @@ paths:
                     type: string
                     format: uuid
                     nullable: true
+    post:
+      summary: Create a new message in the channel
+      parameters:
+        - name: channel
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MessageCreate"
+      responses:
+        "201":
+          description: Message created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Message" }
+        "400":
+          description: Bad request
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
 
   /messages/{id}:
     patch:
@@ -107,7 +133,7 @@ paths:
         "204": { description: Épinglé }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
-        
+
   /messages/pin/{channel}:
     get:
       summary: Liste les messages épinglés d’un canal
@@ -228,6 +254,26 @@ components:
           type: array
           items: { $ref: "#/components/schemas/NotifyEntry" }
       additionalProperties: false
+
+    MessageCreate:
+      type: object
+      required: [channel_id, author_id, content]
+      properties:
+        channel_id: { type: string }
+        author_id: { type: string }
+        content: { type: string }
+        reply_to: { type: string, format: uuid, nullable: true }
+        attachments:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+              url: { type: string, format: uri }
+        notify:
+          type: array
+          items: { $ref: "#/components/schemas/NotifyEntry" }
 
     NotifyEntry:
       type: object
