@@ -24,10 +24,10 @@ async fn main() -> std::io::Result<()> {
 
     let svc = MessageService::new(repo);
 
-    println!("Starting server at http://127.0.0.1:8080");
+    println!("Starting server at http://127.0.0.1:3000");
 
     HttpServer::new(move || App::new().configure(|cfg| http::configure(cfg, svc.clone())))
-        .bind(("127.0.0.1", 8080))?
+        .bind(("127.0.0.1", 3000))?
         .run()
         .await
 }
