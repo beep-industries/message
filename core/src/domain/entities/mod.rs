@@ -14,6 +14,24 @@ pub struct MessageId(pub Uuid);
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AttachmentId(pub Uuid);
 
+impl From<ChannelId> for Uuid {
+    fn from(value: ChannelId) -> Self {
+        value.0
+    }
+}
+
+impl std::fmt::Display for ChannelId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+impl std::fmt::Display for MessageId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Attachment {
     pub id: AttachmentId,

@@ -14,7 +14,7 @@ pub trait MessageRepository: Send + Sync {
         &self,
         channel: &ChannelId,
         limit: Option<u32>,
-        before: Option<MessageId>,
+        before: Option<&MessageId>,
     ) -> impl Future<Output = Result<(Vec<Message>, Option<MessageId>), CoreError>> + Send;
 
     fn delete(&self, message_id: &MessageId) -> impl Future<Output = Result<(), CoreError>> + Send;
