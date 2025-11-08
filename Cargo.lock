@@ -420,6 +420,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "core"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "serde",
+ "thiserror 2.0.17",
+ "uuid",
+]
+
+[[package]]
 name = "core-foundation-sys"
 version = "0.8.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1126,6 +1136,7 @@ dependencies = [
  "actix-web",
  "async-trait",
  "chrono",
+ "core",
  "dotenv",
  "futures-util",
  "mongodb",

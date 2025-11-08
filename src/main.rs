@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use dotenv::dotenv;
+use std::sync::Arc;
 
 use actix_web::{App, HttpServer};
 
