@@ -6,7 +6,7 @@ use utoipa_axum::router::OpenApiRouter;
 use utoipa_scalar::{Scalar, Servable};
 
 use crate::{
-    Config, friend_routes,
+    Config,
     http::{
         health::routes::health_routes,
         server::{
@@ -51,7 +51,6 @@ impl App {
         .into();
         let auth_validator = AuthValidator::new(config.clone().jwt.secret_key);
         let (app_router, mut api) = OpenApiRouter::<AppState>::new()
-            .merge(friend_routes())
             .merge(server_routes())
             // Add application routes here
             .route_layer(from_extractor_with_state::<AuthMiddleware, AuthValidator>(

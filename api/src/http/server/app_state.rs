@@ -22,9 +22,7 @@ impl From<CommunitiesRepositories> for AppState {
     fn from(repositories: CommunitiesRepositories) -> Self {
         let service = CommunitiesService::new(
             repositories.server_repository,
-            repositories.friendship_repository,
             repositories.health_repository,
-            repositories.member_repository,
         );
         AppState { service }
     }

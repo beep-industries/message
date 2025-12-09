@@ -16,12 +16,12 @@ It will handle:
 
 ## Quickstart
 
-
 Launch postgres:
 
 ```bash
 docker compose up -d postgres
 ```
+
 Create the .env file to let sqlx know how to connect to the database:
 
 ```bash
@@ -39,7 +39,9 @@ Launch the API server:
 ```bash
 cargo run --bin api
 ```
+
 The application runs two servers on separate ports:
+
 - **Health server** on `http://localhost:9090` - Isolated health checks (prevents DDOS on API)
   - `GET /health` - Health check with database connectivity
 - **API server** on `http://localhost:3001` - Main application endpoints
@@ -56,6 +58,7 @@ cargo run --bin api -- --help
 ```
 
 You can now see all the possible way to configure the service:
+
 ```bash
 Communities API Server
 
@@ -140,6 +143,8 @@ cargo test domain::test -- -q
 ```
 
 Notes:
+
 - `#[sqlx::test(migrations = "./migrations")]` automatically applies migrations to an isolated test database.
 - Only a reachable Postgres server and `DATABASE_URL` env var are required; you do not need to run migrations manually for tests.
- - If you run the API or any non-`sqlx::test` integration tests that expect existing tables, apply migrations first (see "Apply Database Migrations" below).
+- If you run the API or any non-`sqlx::test` integration tests that expect existing tables, apply migrations first (see "Apply Database Migrations" below).
+

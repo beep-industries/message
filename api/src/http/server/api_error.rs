@@ -3,9 +3,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use communities_core::{
-    domain::common::CoreError, infrastructure::friend::repositories::error::FriendshipError,
-};
+use communities_core::domain::common::CoreError;
 use serde::Serialize;
 use thiserror::Error;
 
@@ -85,22 +83,6 @@ impl From<CoreError> for ApiError {
     }
 }
 
-impl From<FriendshipError> for ApiError {
-    fn from(error: FriendshipError) -> Self {
-        match error {
-            FriendshipError::FriendRequestNotFound => ApiError::NotFound,
-            FriendshipError::FriendRequestAlreadyExists => ApiError::Conflict {
-                error_code: error.error_code().to_string(),
-            },
-            FriendshipError::FailedToRemoveFriendRequest => ApiError::Forbidden,
-            FriendshipError::FriendshipAlreadyExists => ApiError::Conflict {
-                error_code: error.error_code().to_string(),
-            },
-            FriendshipError::FriendshipNotFound => ApiError::NotFound,
-            _ => ApiError::InternalServerError,
-        }
-    }
-}
 #[derive(Debug, Serialize)]
 pub struct ErrorBody {
     pub message: String,

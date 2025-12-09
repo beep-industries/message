@@ -2,7 +2,6 @@ use serde::Deserialize;
 use thiserror::Error;
 use utoipa::{IntoParams, ToSchema};
 
-use crate::domain::friend::entities::UserId;
 use crate::domain::server::entities::ServerId;
 
 pub mod services;
@@ -21,9 +20,6 @@ pub enum CoreError {
     #[error("Server name cannot be empty")]
     InvalidServerName,
 
-    #[error("Failed to manipulate with friendship data")]
-    FriendshipDataError,
-
     #[error("Health check failed")]
     Unhealthy,
 
@@ -36,21 +32,6 @@ pub enum CoreError {
     /// Serialization error occurred when converting event to JSON
     #[error("Serialization error: {msg}")]
     SerializationError { msg: String },
-
-    #[error("Member already exists for server {server_id} and user {user_id}")]
-    MemberAlreadyExists {
-        server_id: ServerId,
-        user_id: UserId,
-    },
-
-    #[error("Member not found for server {server_id} and user {user_id}")]
-    MemberNotFound {
-        server_id: ServerId,
-        user_id: UserId,
-    },
-
-    #[error("Invalid member nickname: cannot be empty or whitespace")]
-    InvalidMemberNickname,
 }
 
 #[derive(Debug, Deserialize, ToSchema, IntoParams)]

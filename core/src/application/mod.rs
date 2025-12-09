@@ -5,29 +5,20 @@ use sqlx::{
 
 use crate::{
     domain::common::{CoreError, services::Service},
-    domain::server_member::ports::MockMemberRepository,
     infrastructure::{
-        MessageRoutingInfo, friend::repositories::postgres::PostgresFriendshipRepository,
-        health::repositories::postgres::PostgresHealthRepository,
+        MessageRoutingInfo, health::repositories::postgres::PostgresHealthRepository,
         server::repositories::postgres::PostgresServerRepository,
     },
 };
 
 /// Concrete service type with PostgreSQL repositories (using MockMemberRepository until issue #68 is implemented)
-pub type CommunitiesService = Service<
-    PostgresServerRepository,
-    PostgresFriendshipRepository,
-    PostgresHealthRepository,
-    MockMemberRepository,
->;
+pub type CommunitiesService = Service<PostgresServerRepository, PostgresHealthRepository>;
 
 #[derive(Clone)]
 pub struct CommunitiesRepositories {
     pool: PgPool,
     pub server_repository: PostgresServerRepository,
-    pub friendship_repository: PostgresFriendshipRepository,
     pub health_repository: PostgresHealthRepository,
-    pub member_repository: MockMemberRepository,
 }
 
 pub async fn create_repositories(
@@ -44,26 +35,17 @@ pub async fn create_repositories(
         message_routing_infos.delete_server,
         message_routing_infos.create_server,
     );
-    let friendship_repository = PostgresFriendshipRepository::new(pool.clone());
     let health_repository = PostgresHealthRepository::new(pool.clone());
-    let member_repository = MockMemberRepository::new();
     Ok(CommunitiesRepositories {
         pool,
         server_repository,
-        friendship_repository,
         health_repository,
-        member_repository,
     })
 }
 
 impl Into<CommunitiesService> for CommunitiesRepositories {
     fn into(self) -> CommunitiesService {
-        Service::new(
-            self.server_repository,
-            self.friendship_repository,
-            self.health_repository,
-            self.member_repository,
-        )
+        Service::new(self.server_repository, self.health_repository)
     }
 }
 
