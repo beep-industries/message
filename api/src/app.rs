@@ -9,12 +9,12 @@ use crate::{
     Config,
     http::{
         health::routes::health_routes,
-        server::{
+        message::{
             ApiError, AppState, middleware::auth::AuthMiddleware,
             middleware::auth::entities::AuthValidator,
         },
     },
-    server_routes,
+    message_routes,
 };
 
 #[derive(OpenApi)]
@@ -51,7 +51,7 @@ impl App {
         .into();
         let auth_validator = AuthValidator::new(config.clone().jwt.secret_key);
         let (app_router, mut api) = OpenApiRouter::<AppState>::new()
-            .merge(server_routes())
+            .merge(message_routes())
             // Add application routes here
             .route_layer(from_extractor_with_state::<AuthMiddleware, AuthValidator>(
                 auth_validator.clone(),
@@ -93,26 +93,26 @@ impl App {
     }
 
     pub async fn start(&self) -> Result<(), ApiError> {
-        let health_addr = format!("0.0.0.0:{}", self.config.clone().server.health_port);
-        let api_addr = format!("0.0.0.0:{}", self.config.clone().server.api_port);
-        // Create TCP listeners for both servers
+        let health_addr = format!("0.0.0.0:{}", self.config.clone().message.health_port);
+        let api_addr = format!("0.0.0.0:{}", self.config.clone().message.api_port);
+        // Create TCP listeners for both messages
         let health_listener = tokio::net::TcpListener::bind(&health_addr)
             .await
             .map_err(|_| ApiError::StartupError {
-                msg: format!("Failed to bind health server: {}", health_addr),
+                msg: format!("Failed to bind health message: {}", health_addr),
             })?;
         let api_listener = tokio::net::TcpListener::bind(&api_addr)
             .await
             .map_err(|_| ApiError::StartupError {
-                msg: format!("Failed to bind API server: {}", api_addr),
+                msg: format!("Failed to bind API message: {}", api_addr),
             })?;
 
-        // Run both servers concurrently
+        // Run both messages concurrently
         tokio::try_join!(
             axum::serve(health_listener, self.health_router.clone()),
             axum::serve(api_listener, self.app_router.clone())
         )
-        .expect("Failed to start servers");
+        .expect("Failed to start messages");
         Ok(())
     }
 

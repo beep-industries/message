@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 #[derive(Clone, Parser, Debug, Default)]
 #[command(name = "communities-api")]
-#[command(about = "Communities API Server", long_about = None)]
+#[command(about = "Communities API Message", long_about = None)]
 pub struct Config {
     #[command(flatten)]
     pub database: DatabaseConfig,
@@ -15,7 +15,7 @@ pub struct Config {
     pub jwt: JwtConfig,
 
     #[command(flatten)]
-    pub server: ServerConfig,
+    pub message: MessageConfig,
 
     #[arg(
         long = "routing-config",
@@ -99,9 +99,9 @@ pub struct JwtConfig {
 }
 
 #[derive(Clone, Parser, Debug, Default)]
-pub struct ServerConfig {
+pub struct MessageConfig {
     #[arg(
-        long = "server-api-port",
+        long = "message-api-port",
         env = "API_PORT",
         default_value = "8080",
         name = "api_port"
@@ -109,7 +109,7 @@ pub struct ServerConfig {
     pub api_port: u16,
 
     #[arg(
-        long = "server-health-port",
+        long = "message-health-port",
         env = "HEALTH_PORT",
         default_value = "8081"
     )]

@@ -7,17 +7,17 @@ use crate::{
     domain::common::{CoreError, services::Service},
     infrastructure::{
         MessageRoutingInfo, health::repositories::postgres::PostgresHealthRepository,
-        server::repositories::postgres::PostgresServerRepository,
+        message::repositories::postgres::PostgresMessageRepository,
     },
 };
 
 /// Concrete service type with PostgreSQL repositories (using MockMemberRepository until issue #68 is implemented)
-pub type CommunitiesService = Service<PostgresServerRepository, PostgresHealthRepository>;
+pub type CommunitiesService = Service<PostgresMessageRepository, PostgresHealthRepository>;
 
 #[derive(Clone)]
 pub struct CommunitiesRepositories {
     pool: PgPool,
-    pub server_repository: PostgresServerRepository,
+    pub message_repository: PostgresMessageRepository,
     pub health_repository: PostgresHealthRepository,
 }
 
@@ -30,22 +30,22 @@ pub async fn create_repositories(
         .connect_with(pg_connection_options)
         .await
         .map_err(|e| CoreError::ServiceUnavailable(e.to_string()))?;
-    let server_repository = PostgresServerRepository::new(
+    let message_repository = PostgresMessageRepository::new(
         pool.clone(),
-        message_routing_infos.delete_server,
-        message_routing_infos.create_server,
+        message_routing_infos.delete_message,
+        message_routing_infos.create_message,
     );
     let health_repository = PostgresHealthRepository::new(pool.clone());
     Ok(CommunitiesRepositories {
         pool,
-        server_repository,
+        message_repository,
         health_repository,
     })
 }
 
 impl Into<CommunitiesService> for CommunitiesRepositories {
     fn into(self) -> CommunitiesService {
-        Service::new(self.server_repository, self.health_repository)
+        Service::new(self.message_repository, self.health_repository)
     }
 }
 
@@ -57,7 +57,7 @@ impl CommunitiesRepositories {
 
 impl CommunitiesService {
     pub async fn shutdown_pool(&self) {
-        self.server_repository.pool.close().await;
+        self.message_repository.pool.close().await;
     }
 }
 
@@ -69,8 +69,8 @@ impl CommunitiesService {
 /// type of domain event.
 #[derive(Clone, Debug, Default, serde::Deserialize, serde::Serialize)]
 pub struct MessageRoutingInfos {
-    /// Routing information for server creation events
-    pub create_server: MessageRoutingInfo,
-    /// Routing information for server deletion events
-    pub delete_server: MessageRoutingInfo,
+    /// Routing information for message creation events
+    pub create_message: MessageRoutingInfo,
+    /// Routing information for message deletion events
+    pub delete_message: MessageRoutingInfo,
 }

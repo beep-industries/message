@@ -9,8 +9,8 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Create the servers table
-CREATE TABLE servers (
+-- Create the messages table
+CREATE TABLE messages (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
     banner_url VARCHAR(512),
@@ -22,6 +22,6 @@ CREATE TABLE servers (
 );
 
 -- Create trigger to automatically update updated_at on UPDATE
-CREATE TRIGGER update_servers_updated_at
-    BEFORE UPDATE ON servers
+CREATE TRIGGER update_messages_updated_at
+    BEFORE UPDATE ON messages
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

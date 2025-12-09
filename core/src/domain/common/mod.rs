@@ -2,7 +2,7 @@ use serde::Deserialize;
 use thiserror::Error;
 use utoipa::{IntoParams, ToSchema};
 
-use crate::domain::server::entities::ServerId;
+use crate::domain::message::entities::MessageId;
 
 pub mod services;
 
@@ -11,14 +11,14 @@ pub enum CoreError {
     #[error("Service is currently unavailable")]
     ServiceUnavailable(String),
 
-    #[error("Server with id {id} not found")]
-    ServerNotFound { id: ServerId },
+    #[error("Message with id {id} not found")]
+    MessageNotFound { id: MessageId },
 
-    #[error("Failed to insert server with name {name}")]
-    FailedToInsertServer { name: String },
+    #[error("Failed to insert message with name {name}")]
+    FailedToInsertMessage { name: String },
 
-    #[error("Server name cannot be empty")]
-    InvalidServerName,
+    #[error("Message name cannot be empty")]
+    InvalidMessageName,
 
     #[error("Health check failed")]
     Unhealthy,

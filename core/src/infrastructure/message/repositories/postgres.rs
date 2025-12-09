@@ -3,75 +3,77 @@ use sqlx::{PgPool, query_as};
 use crate::{
     domain::{
         common::{CoreError, GetPaginated, TotalPaginatedElements},
-        server::{
-            entities::{DeleteServerEvent, InsertServerInput, Server, ServerId, UpdateServerInput},
-            ports::ServerRepository,
+        message::{
+            entities::{
+                DeleteMessageEvent, InsertMessageInput, Message, MessageId, UpdateMessageInput,
+            },
+            ports::MessageRepository,
         },
     },
     infrastructure::{MessageRoutingInfo, outbox::OutboxEventRecord},
 };
 
 #[derive(Clone)]
-pub struct PostgresServerRepository {
+pub struct PostgresMessageRepository {
     pub(crate) pool: PgPool,
-    delete_server_router: MessageRoutingInfo,
-    create_server_router: MessageRoutingInfo,
+    delete_message_router: MessageRoutingInfo,
+    create_message_router: MessageRoutingInfo,
 }
 
-impl PostgresServerRepository {
+impl PostgresMessageRepository {
     pub fn new(
         pool: PgPool,
-        delete_server_router: MessageRoutingInfo,
-        create_server_router: MessageRoutingInfo,
+        delete_message_router: MessageRoutingInfo,
+        create_message_router: MessageRoutingInfo,
     ) -> Self {
         Self {
             pool,
-            delete_server_router,
-            create_server_router,
+            delete_message_router,
+            create_message_router,
         }
     }
 }
 
-impl ServerRepository for PostgresServerRepository {
-    async fn find_by_id(&self, id: &ServerId) -> Result<Option<Server>, CoreError> {
-        let server = query_as!(
-            Server,
+impl MessageRepository for PostgresMessageRepository {
+    async fn find_by_id(&self, id: &MessageId) -> Result<Option<Message>, CoreError> {
+        let message = query_as!(
+            Message,
             r#"
             SELECT id, name, banner_url, picture_url, description, owner_id, 
                    visibility as "visibility: _", created_at, updated_at
-            FROM servers
+            FROM messages
             WHERE id = $1
             "#,
             id.0
         )
         .fetch_optional(&self.pool)
         .await
-        .map_err(|_| CoreError::ServerNotFound { id: id.clone() })?;
+        .map_err(|_| CoreError::MessageNotFound { id: id.clone() })?;
 
-        Ok(server)
+        Ok(message)
     }
 
     async fn list(
         &self,
         pagination: &GetPaginated,
-    ) -> Result<(Vec<Server>, TotalPaginatedElements), CoreError> {
+    ) -> Result<(Vec<Message>, TotalPaginatedElements), CoreError> {
         let offset = (pagination.page - 1) * pagination.limit;
         let limit = std::cmp::min(pagination.limit, 50) as i64;
 
-        // Get total count of public servers only
+        // Get total count of public messages only
         let total: i64 =
-            sqlx::query_scalar("SELECT COUNT(*) FROM servers WHERE visibility = 'public'")
+            sqlx::query_scalar("SELECT COUNT(*) FROM messages WHERE visibility = 'public'")
                 .fetch_one(&self.pool)
                 .await
                 .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
 
-        // Get paginated public servers only
-        let servers = query_as!(
-            Server,
+        // Get paginated public messages only
+        let messages = query_as!(
+            Message,
             r#"
             SELECT id, name, banner_url, picture_url, description, owner_id,
                    visibility as "visibility: _", created_at, updated_at
-            FROM servers
+            FROM messages
             WHERE visibility = 'public'
             ORDER BY created_at DESC
             LIMIT $1 OFFSET $2
@@ -83,23 +85,23 @@ impl ServerRepository for PostgresServerRepository {
         .await
         .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
 
-        Ok((servers, total as u64))
+        Ok((messages, total as u64))
     }
 
-    async fn insert(&self, input: InsertServerInput) -> Result<Server, CoreError> {
+    async fn insert(&self, input: InsertMessageInput) -> Result<Message, CoreError> {
         let mut tx = self
             .pool
             .begin()
             .await
-            .map_err(|_| CoreError::FailedToInsertServer {
+            .map_err(|_| CoreError::FailedToInsertMessage {
                 name: input.name.clone(),
             })?;
 
-        // Insert the server into the database
-        let server = query_as!(
-            Server,
+        // Insert the message into the database
+        let message = query_as!(
+            Message,
             r#"
-            INSERT INTO servers (name, owner_id, picture_url, banner_url, description, visibility)
+            INSERT INTO messages (name, owner_id, picture_url, banner_url, description, visibility)
             VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING id, name, banner_url, picture_url, description, owner_id, 
                       visibility as "visibility: _", created_at, updated_at
@@ -113,46 +115,46 @@ impl ServerRepository for PostgresServerRepository {
         )
         .fetch_one(&mut *tx)
         .await
-        .map_err(|_| CoreError::FailedToInsertServer {
+        .map_err(|_| CoreError::FailedToInsertMessage {
             name: input.name.clone(),
         })?;
 
         // Write the create event to the outbox table for eventual processing
-        let create_server_event =
-            OutboxEventRecord::new(self.create_server_router.clone(), input.clone());
-        create_server_event.write(&mut *tx).await?;
+        let create_message_event =
+            OutboxEventRecord::new(self.create_message_router.clone(), input.clone());
+        create_message_event.write(&mut *tx).await?;
 
         tx.commit()
             .await
-            .map_err(|_| CoreError::FailedToInsertServer { name: input.name })?;
+            .map_err(|_| CoreError::FailedToInsertMessage { name: input.name })?;
 
-        Ok(server)
+        Ok(message)
     }
 
-    async fn update(&self, input: UpdateServerInput) -> Result<Server, CoreError> {
+    async fn update(&self, input: UpdateMessageInput) -> Result<Message, CoreError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
 
-        // First, fetch the current server to get existing values
+        // First, fetch the current message to get existing values
         let current = query_as!(
-            Server,
+            Message,
             r#"
             SELECT id, name, banner_url, picture_url, description, owner_id, 
                    visibility as "visibility: _", created_at, updated_at
-            FROM servers
+            FROM messages
             WHERE id = $1
             "#,
             input.id.0
         )
         .fetch_optional(&mut *tx)
         .await
-        .map_err(|_| CoreError::ServerNotFound {
+        .map_err(|_| CoreError::MessageNotFound {
             id: input.id.clone(),
         })?
-        .ok_or_else(|| CoreError::ServerNotFound {
+        .ok_or_else(|| CoreError::MessageNotFound {
             id: input.id.clone(),
         })?;
 
@@ -163,11 +165,11 @@ impl ServerRepository for PostgresServerRepository {
         let new_description = input.description.as_ref().or(current.description.as_ref());
         let new_visibility = input.visibility.as_ref().unwrap_or(&current.visibility);
 
-        // Update the server in the database
-        let server = query_as!(
-            Server,
+        // Update the message in the database
+        let message = query_as!(
+            Message,
             r#"
-            UPDATE servers
+            UPDATE messages
             SET name = $1, picture_url = $2, banner_url = $3, description = $4, visibility = $5
             WHERE id = $6
             RETURNING id, name, banner_url, picture_url, description, owner_id, 
@@ -182,7 +184,7 @@ impl ServerRepository for PostgresServerRepository {
         )
         .fetch_one(&mut *tx)
         .await
-        .map_err(|_| CoreError::ServerNotFound {
+        .map_err(|_| CoreError::MessageNotFound {
             id: input.id.clone(),
         })?;
 
@@ -190,32 +192,33 @@ impl ServerRepository for PostgresServerRepository {
             .await
             .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
 
-        Ok(server)
+        Ok(message)
     }
 
-    async fn delete(&self, id: &ServerId) -> Result<(), CoreError> {
+    async fn delete(&self, id: &MessageId) -> Result<(), CoreError> {
         let mut tx = self
             .pool
             .begin()
             .await
             .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
 
-        // Delete the server inside the database
-        let result = sqlx::query(r#"DELETE FROM servers WHERE id = $1"#)
+        // Delete the message inside the database
+        let result = sqlx::query(r#"DELETE FROM messages WHERE id = $1"#)
             .bind(id.0)
             .execute(&mut *tx)
             .await
             .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
 
         if result.rows_affected() == 0 {
-            return Err(CoreError::ServerNotFound { id: id.clone() });
+            return Err(CoreError::MessageNotFound { id: id.clone() });
         }
 
         // Write the delete event to the outbox table
         // for eventual processing
-        let event = DeleteServerEvent { id: id.clone() };
-        let delete_server_event = OutboxEventRecord::new(self.delete_server_router.clone(), event);
-        delete_server_event.write(&mut *tx).await?;
+        let event = DeleteMessageEvent { id: id.clone() };
+        let delete_message_event =
+            OutboxEventRecord::new(self.delete_message_router.clone(), event);
+        delete_message_event.write(&mut *tx).await?;
 
         tx.commit()
             .await
@@ -226,31 +229,33 @@ impl ServerRepository for PostgresServerRepository {
 }
 
 #[sqlx::test(migrations = "./migrations")]
-async fn test_insert_server_writes_row_and_outbox(pool: PgPool) -> Result<(), CoreError> {
-    use crate::domain::server::entities::{InsertServerInput, OwnerId, ServerVisibility};
+async fn test_insert_message_writes_row_and_outbox(pool: PgPool) -> Result<(), CoreError> {
+    use crate::domain::message::entities::{InsertMessageInput, MessageVisibility, OwnerId};
     use crate::infrastructure::outbox::MessageRouter;
     use uuid::Uuid;
 
-    let create_router =
-        MessageRoutingInfo::new("server.exchange".to_string(), "server.created".to_string());
+    let create_router = MessageRoutingInfo::new(
+        "message.exchange".to_string(),
+        "message.created".to_string(),
+    );
 
-    let repository = PostgresServerRepository::new(
+    let repository = PostgresMessageRepository::new(
         pool.clone(),
         MessageRoutingInfo::default(),
         create_router.clone(),
     );
 
     let owner_id = OwnerId(Uuid::new_v4());
-    let input = InsertServerInput {
-        name: "my test server".to_string(),
+    let input = InsertMessageInput {
+        name: "my test message".to_string(),
         owner_id: owner_id.clone(),
         picture_url: Some("https://example.com/pic.png".to_string()),
         banner_url: Some("https://example.com/banner.png".to_string()),
         description: Some("a description".to_string()),
-        visibility: ServerVisibility::Public,
+        visibility: MessageVisibility::Public,
     };
 
-    // Act: insert server
+    // Act: insert message
     let created = repository.insert(input.clone()).await?;
 
     // Assert: returned fields
@@ -271,7 +276,7 @@ async fn test_insert_server_writes_row_and_outbox(pool: PgPool) -> Result<(), Co
     assert_eq!(fetched.name, created.name);
 
     // Assert: an outbox message was written with expected routing and payload
-    // Note: payload is the serialized InsertServerInput
+    // Note: payload is the serialized InsertMessageInput
     use sqlx::Row;
     let row = sqlx::query(
         r#"
@@ -297,7 +302,7 @@ async fn test_insert_server_writes_row_and_outbox(pool: PgPool) -> Result<(), Co
     assert_eq!(exchange_name, create_router.exchange_name());
     assert_eq!(routing_key, create_router.routing_key());
 
-    // Validate the payload JSON contains the server name and owner_id
+    // Validate the payload JSON contains the message name and owner_id
     let payload: serde_json::Value = row
         .try_get("payload")
         .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
@@ -319,15 +324,19 @@ async fn test_insert_server_writes_row_and_outbox(pool: PgPool) -> Result<(), Co
 async fn test_find_by_id_returns_none_for_nonexistent(pool: PgPool) -> Result<(), CoreError> {
     use uuid::Uuid;
 
-    let create_router =
-        MessageRoutingInfo::new("server.exchange".to_string(), "server.created".to_string());
-    let delete_router =
-        MessageRoutingInfo::new("server.exchange".to_string(), "server.deleted".to_string());
+    let create_router = MessageRoutingInfo::new(
+        "message.exchange".to_string(),
+        "message.created".to_string(),
+    );
+    let delete_router = MessageRoutingInfo::new(
+        "message.exchange".to_string(),
+        "message.deleted".to_string(),
+    );
 
-    let repository = PostgresServerRepository::new(pool.clone(), delete_router, create_router);
+    let repository = PostgresMessageRepository::new(pool.clone(), delete_router, create_router);
 
-    // Try to find a server with a random UUID that doesn't exist
-    let nonexistent_id = ServerId(Uuid::new_v4());
+    // Try to find a message with a random UUID that doesn't exist
+    let nonexistent_id = MessageId(Uuid::new_v4());
     let result = repository.find_by_id(&nonexistent_id).await?;
 
     // Assert: should return None
@@ -340,53 +349,61 @@ async fn test_find_by_id_returns_none_for_nonexistent(pool: PgPool) -> Result<()
 async fn test_delete_nonexistent_returns_error(pool: PgPool) -> Result<(), CoreError> {
     use uuid::Uuid;
 
-    let create_router =
-        MessageRoutingInfo::new("server.exchange".to_string(), "server.created".to_string());
-    let delete_router =
-        MessageRoutingInfo::new("server.exchange".to_string(), "server.deleted".to_string());
+    let create_router = MessageRoutingInfo::new(
+        "message.exchange".to_string(),
+        "message.created".to_string(),
+    );
+    let delete_router = MessageRoutingInfo::new(
+        "message.exchange".to_string(),
+        "message.deleted".to_string(),
+    );
 
-    let repository = PostgresServerRepository::new(pool.clone(), delete_router, create_router);
+    let repository = PostgresMessageRepository::new(pool.clone(), delete_router, create_router);
 
-    // Try to delete a server with a random UUID that doesn't exist
-    let nonexistent_id = ServerId(Uuid::new_v4());
+    // Try to delete a message with a random UUID that doesn't exist
+    let nonexistent_id = MessageId(Uuid::new_v4());
     let result = repository.delete(&nonexistent_id).await;
 
-    // Assert: should return ServerNotFound error
+    // Assert: should return MessageNotFound error
     assert!(result.is_err());
     match result {
-        Err(CoreError::ServerNotFound { id }) => {
+        Err(CoreError::MessageNotFound { id }) => {
             assert_eq!(id, nonexistent_id);
         }
-        _ => panic!("Expected ServerNotFound error"),
+        _ => panic!("Expected MessageNotFound error"),
     }
 
     Ok(())
 }
 
 #[sqlx::test(migrations = "./migrations")]
-async fn test_delete_server_removes_row_and_outbox(pool: PgPool) -> Result<(), CoreError> {
-    use crate::domain::server::entities::{InsertServerInput, OwnerId, ServerVisibility};
+async fn test_delete_message_removes_row_and_outbox(pool: PgPool) -> Result<(), CoreError> {
+    use crate::domain::message::entities::{InsertMessageInput, MessageVisibility, OwnerId};
     use crate::infrastructure::outbox::MessageRouter;
     use sqlx::Row;
     use uuid::Uuid;
 
-    let create_router =
-        MessageRoutingInfo::new("server.exchange".to_string(), "server.created".to_string());
-    let delete_router =
-        MessageRoutingInfo::new("server.exchange".to_string(), "server.deleted".to_string());
+    let create_router = MessageRoutingInfo::new(
+        "message.exchange".to_string(),
+        "message.created".to_string(),
+    );
+    let delete_router = MessageRoutingInfo::new(
+        "message.exchange".to_string(),
+        "message.deleted".to_string(),
+    );
 
     let repository =
-        PostgresServerRepository::new(pool.clone(), delete_router.clone(), create_router);
+        PostgresMessageRepository::new(pool.clone(), delete_router.clone(), create_router);
 
-    // Arrange: insert a server first
+    // Arrange: insert a message first
     let owner_id = OwnerId(Uuid::new_v4());
-    let input = InsertServerInput {
+    let input = InsertMessageInput {
         name: "to delete".to_string(),
         owner_id: owner_id.clone(),
         picture_url: None,
         banner_url: None,
         description: None,
-        visibility: ServerVisibility::Private,
+        visibility: MessageVisibility::Private,
     };
     let created = repository.insert(input).await?;
 
@@ -436,42 +453,44 @@ async fn test_delete_server_removes_row_and_outbox(pool: PgPool) -> Result<(), C
 }
 
 #[sqlx::test(migrations = "./migrations")]
-async fn test_update_server_updates_fields(pool: PgPool) -> Result<(), CoreError> {
-    use crate::domain::server::entities::{
-        InsertServerInput, OwnerId, ServerVisibility, UpdateServerInput,
+async fn test_update_message_updates_fields(pool: PgPool) -> Result<(), CoreError> {
+    use crate::domain::message::entities::{
+        InsertMessageInput, MessageVisibility, OwnerId, UpdateMessageInput,
     };
     use uuid::Uuid;
 
-    let create_router =
-        MessageRoutingInfo::new("server.exchange".to_string(), "server.created".to_string());
+    let create_router = MessageRoutingInfo::new(
+        "message.exchange".to_string(),
+        "message.created".to_string(),
+    );
 
     let repository =
-        PostgresServerRepository::new(pool.clone(), MessageRoutingInfo::default(), create_router);
+        PostgresMessageRepository::new(pool.clone(), MessageRoutingInfo::default(), create_router);
 
-    // Arrange: insert a server first
+    // Arrange: insert a message first
     let owner_id = OwnerId(Uuid::new_v4());
-    let input = InsertServerInput {
+    let input = InsertMessageInput {
         name: "original name".to_string(),
         owner_id: owner_id.clone(),
         picture_url: Some("https://example.com/old.png".to_string()),
         banner_url: Some("https://example.com/old-banner.png".to_string()),
         description: Some("old description".to_string()),
-        visibility: ServerVisibility::Public,
+        visibility: MessageVisibility::Public,
     };
     let created = repository.insert(input).await?;
 
-    // Act: update the server
-    let update_input = UpdateServerInput {
+    // Act: update the message
+    let update_input = UpdateMessageInput {
         id: created.id.clone(),
         name: Some("updated name".to_string()),
         picture_url: Some("https://example.com/new.png".to_string()),
         banner_url: None,
         description: Some("new description".to_string()),
-        visibility: Some(ServerVisibility::Private),
+        visibility: Some(MessageVisibility::Private),
     };
     let updated = repository.update(update_input.clone()).await?;
 
-    // Assert: returned server has updated fields
+    // Assert: returned message has updated fields
     assert_eq!(updated.id, created.id);
     assert_eq!(updated.name, "updated name");
     assert_eq!(
@@ -483,7 +502,7 @@ async fn test_update_server_updates_fields(pool: PgPool) -> Result<(), CoreError
         Some("https://example.com/old-banner.png".to_string())
     ); // unchanged
     assert_eq!(updated.description, Some("new description".to_string()));
-    assert_eq!(updated.visibility, ServerVisibility::Private);
+    assert_eq!(updated.visibility, MessageVisibility::Private);
     assert!(updated.updated_at.is_some());
 
     // Assert: it can be fetched back with updates
@@ -500,19 +519,21 @@ async fn test_update_server_updates_fields(pool: PgPool) -> Result<(), CoreError
 }
 
 #[sqlx::test(migrations = "./migrations")]
-async fn test_update_nonexistent_server_returns_error(pool: PgPool) -> Result<(), CoreError> {
-    use crate::domain::server::entities::UpdateServerInput;
+async fn test_update_nonexistent_message_returns_error(pool: PgPool) -> Result<(), CoreError> {
+    use crate::domain::message::entities::UpdateMessageInput;
     use uuid::Uuid;
 
-    let create_router =
-        MessageRoutingInfo::new("server.exchange".to_string(), "server.created".to_string());
+    let create_router = MessageRoutingInfo::new(
+        "message.exchange".to_string(),
+        "message.created".to_string(),
+    );
 
     let repository =
-        PostgresServerRepository::new(pool.clone(), MessageRoutingInfo::default(), create_router);
+        PostgresMessageRepository::new(pool.clone(), MessageRoutingInfo::default(), create_router);
 
-    // Try to update a server with a random UUID that doesn't exist
-    let nonexistent_id = ServerId(Uuid::new_v4());
-    let update_input = UpdateServerInput {
+    // Try to update a message with a random UUID that doesn't exist
+    let nonexistent_id = MessageId(Uuid::new_v4());
+    let update_input = UpdateMessageInput {
         id: nonexistent_id.clone(),
         name: Some("new name".to_string()),
         picture_url: None,
@@ -522,47 +543,49 @@ async fn test_update_nonexistent_server_returns_error(pool: PgPool) -> Result<()
     };
     let result = repository.update(update_input).await;
 
-    // Assert: should return ServerNotFound error
+    // Assert: should return MessageNotFound error
     assert!(result.is_err());
     match result {
-        Err(CoreError::ServerNotFound { id }) => {
+        Err(CoreError::MessageNotFound { id }) => {
             assert_eq!(id, nonexistent_id);
         }
-        _ => panic!("Expected ServerNotFound error"),
+        _ => panic!("Expected MessageNotFound error"),
     }
 
     Ok(())
 }
 
 #[sqlx::test(migrations = "./migrations")]
-async fn test_update_server_with_no_fields_returns_unchanged(
+async fn test_update_message_with_no_fields_returns_unchanged(
     pool: PgPool,
 ) -> Result<(), CoreError> {
-    use crate::domain::server::entities::{
-        InsertServerInput, OwnerId, ServerVisibility, UpdateServerInput,
+    use crate::domain::message::entities::{
+        InsertMessageInput, MessageVisibility, OwnerId, UpdateMessageInput,
     };
     use uuid::Uuid;
 
-    let create_router =
-        MessageRoutingInfo::new("server.exchange".to_string(), "server.created".to_string());
+    let create_router = MessageRoutingInfo::new(
+        "message.exchange".to_string(),
+        "message.created".to_string(),
+    );
 
     let repository =
-        PostgresServerRepository::new(pool.clone(), MessageRoutingInfo::default(), create_router);
+        PostgresMessageRepository::new(pool.clone(), MessageRoutingInfo::default(), create_router);
 
-    // Arrange: insert a server first
+    // Arrange: insert a message first
     let owner_id = OwnerId(Uuid::new_v4());
-    let input = InsertServerInput {
-        name: "test server".to_string(),
+    let input = InsertMessageInput {
+        name: "test message".to_string(),
         owner_id: owner_id.clone(),
         picture_url: Some("https://example.com/pic.png".to_string()),
         banner_url: None,
         description: None,
-        visibility: ServerVisibility::Public,
+        visibility: MessageVisibility::Public,
     };
     let created = repository.insert(input).await?;
 
     // Act: update with no fields
-    let update_input = UpdateServerInput {
+    let update_input = UpdateMessageInput {
         id: created.id.clone(),
         name: None,
         picture_url: None,
@@ -572,7 +595,7 @@ async fn test_update_server_with_no_fields_returns_unchanged(
     };
     let result = repository.update(update_input).await?;
 
-    // Assert: returned server is unchanged
+    // Assert: returned message is unchanged
     assert_eq!(result.id, created.id);
     assert_eq!(result.name, created.name);
     assert_eq!(result.picture_url, created.picture_url);
@@ -581,127 +604,134 @@ async fn test_update_server_with_no_fields_returns_unchanged(
 }
 
 #[sqlx::test(migrations = "./migrations")]
-async fn test_list_servers_with_pagination(pool: PgPool) -> Result<(), CoreError> {
+async fn test_list_messages_with_pagination(pool: PgPool) -> Result<(), CoreError> {
     use crate::domain::common::GetPaginated;
-    use crate::domain::server::entities::{InsertServerInput, OwnerId, ServerVisibility};
+    use crate::domain::message::entities::{InsertMessageInput, MessageVisibility, OwnerId};
     use uuid::Uuid;
 
-    let create_router =
-        MessageRoutingInfo::new("server.exchange".to_string(), "server.created".to_string());
+    let create_router = MessageRoutingInfo::new(
+        "message.exchange".to_string(),
+        "message.created".to_string(),
+    );
 
     let repository =
-        PostgresServerRepository::new(pool.clone(), MessageRoutingInfo::default(), create_router);
+        PostgresMessageRepository::new(pool.clone(), MessageRoutingInfo::default(), create_router);
 
-    // Arrange: insert multiple servers
+    // Arrange: insert multiple messages
     let owner_id = OwnerId(Uuid::new_v4());
     for i in 1..=5 {
-        let input = InsertServerInput {
-            name: format!("Server {}", i),
+        let input = InsertMessageInput {
+            name: format!("Message {}", i),
             owner_id: owner_id.clone(),
             picture_url: None,
             banner_url: None,
             description: Some(format!("Description {}", i)),
-            visibility: ServerVisibility::Public,
+            visibility: MessageVisibility::Public,
         };
         repository.insert(input).await?;
     }
 
     // Act: list first page with 2 items
     let pagination = GetPaginated { page: 1, limit: 2 };
-    let (servers, total) = repository.list(&pagination).await?;
+    let (messages, total) = repository.list(&pagination).await?;
 
     // Assert: correct pagination
     assert_eq!(total, 5);
-    assert_eq!(servers.len(), 2);
-    assert_eq!(servers[0].name, "Server 5"); // Most recent first
-    assert_eq!(servers[1].name, "Server 4");
+    assert_eq!(messages.len(), 2);
+    assert_eq!(messages[0].name, "Message 5"); // Most recent first
+    assert_eq!(messages[1].name, "Message 4");
 
     // Act: list second page
     let pagination = GetPaginated { page: 2, limit: 2 };
-    let (servers, total) = repository.list(&pagination).await?;
+    let (messages, total) = repository.list(&pagination).await?;
 
     // Assert: correct pagination
     assert_eq!(total, 5);
-    assert_eq!(servers.len(), 2);
-    assert_eq!(servers[0].name, "Server 3");
-    assert_eq!(servers[1].name, "Server 2");
+    assert_eq!(messages.len(), 2);
+    assert_eq!(messages[0].name, "Message 3");
+    assert_eq!(messages[1].name, "Message 2");
 
     // Act: list third page
     let pagination = GetPaginated { page: 3, limit: 2 };
-    let (servers, total) = repository.list(&pagination).await?;
+    let (messages, total) = repository.list(&pagination).await?;
 
     // Assert: correct pagination
     assert_eq!(total, 5);
-    assert_eq!(servers.len(), 1);
-    assert_eq!(servers[0].name, "Server 1");
+    assert_eq!(messages.len(), 1);
+    assert_eq!(messages[0].name, "Message 1");
 
     Ok(())
 }
 
 #[sqlx::test(migrations = "./migrations")]
-async fn test_list_servers_filters_only_public(pool: PgPool) -> Result<(), CoreError> {
+async fn test_list_messages_filters_only_public(pool: PgPool) -> Result<(), CoreError> {
     use crate::domain::common::GetPaginated;
-    use crate::domain::server::entities::{InsertServerInput, OwnerId, ServerVisibility};
+    use crate::domain::message::entities::{InsertMessageInput, MessageVisibility, OwnerId};
     use uuid::Uuid;
 
-    let create_router =
-        MessageRoutingInfo::new("server.exchange".to_string(), "server.created".to_string());
+    let create_router = MessageRoutingInfo::new(
+        "message.exchange".to_string(),
+        "message.created".to_string(),
+    );
 
     let repository =
-        PostgresServerRepository::new(pool.clone(), MessageRoutingInfo::default(), create_router);
+        PostgresMessageRepository::new(pool.clone(), MessageRoutingInfo::default(), create_router);
 
-    // Arrange: insert servers with mixed visibility
+    // Arrange: insert messages with mixed visibility
     let owner_id = OwnerId(Uuid::new_v4());
 
-    // Create 3 public servers
+    // Create 3 public messages
     for i in 1..=3 {
-        let input = InsertServerInput {
-            name: format!("Public Server {}", i),
+        let input = InsertMessageInput {
+            name: format!("Public Message {}", i),
             owner_id: owner_id.clone(),
             picture_url: None,
             banner_url: None,
             description: Some(format!("Public description {}", i)),
-            visibility: ServerVisibility::Public,
+            visibility: MessageVisibility::Public,
         };
         repository.insert(input).await?;
     }
 
-    // Create 2 private servers
+    // Create 2 private messages
     for i in 1..=2 {
-        let input = InsertServerInput {
-            name: format!("Private Server {}", i),
+        let input = InsertMessageInput {
+            name: format!("Private Message {}", i),
             owner_id: owner_id.clone(),
             picture_url: None,
             banner_url: None,
             description: Some(format!("Private description {}", i)),
-            visibility: ServerVisibility::Private,
+            visibility: MessageVisibility::Private,
         };
         repository.insert(input).await?;
     }
 
-    // Act: list all servers
+    // Act: list all messages
     let pagination = GetPaginated { page: 1, limit: 10 };
-    let (servers, total) = repository.list(&pagination).await?;
+    let (messages, total) = repository.list(&pagination).await?;
 
-    // Assert: returns only public servers (per security requirements)
-    assert_eq!(total, 3, "Should return total count of public servers only");
+    // Assert: returns only public messages (per security requirements)
     assert_eq!(
-        servers.len(),
+        total, 3,
+        "Should return total count of public messages only"
+    );
+    assert_eq!(
+        messages.len(),
         3,
-        "Should return only public servers in the page"
+        "Should return only public messages in the page"
     );
 
-    // Verify all returned servers are public
-    let all_public = servers
+    // Verify all returned messages are public
+    let all_public = messages
         .iter()
-        .all(|s| s.visibility == ServerVisibility::Public);
+        .all(|s| s.visibility == MessageVisibility::Public);
 
-    assert!(all_public, "All returned servers should be public");
+    assert!(all_public, "All returned messages should be public");
 
     // Verify ordering (most recent first)
-    assert_eq!(servers[0].name, "Public Server 3");
-    assert_eq!(servers[1].name, "Public Server 2");
-    assert_eq!(servers[2].name, "Public Server 1");
+    assert_eq!(messages[0].name, "Public Message 3");
+    assert_eq!(messages[1].name, "Public Message 2");
+    assert_eq!(messages[2].name, "Public Message 1");
 
     Ok(())
 }

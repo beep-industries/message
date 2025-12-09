@@ -5,7 +5,7 @@ use utoipa::ToSchema;
 
 use communities_core::domain::health::port::HealthService;
 
-use crate::http::server::{ApiError, AppState, Response};
+use crate::http::message::{ApiError, AppState, Response};
 
 /// Response structure for the health check
 #[derive(Debug, Clone, Serialize, ToSchema)]
@@ -24,7 +24,7 @@ pub struct HealthResponse {
     responses(
         (status = 200, description = "Service is healthy", body = HealthResponse),
         (status = 503, description = "Service is unhealthy"),
-        (status = 500, description = "Internal server error")
+        (status = 500, description = "Internal message error")
     )
 )]
 pub async fn health_check(

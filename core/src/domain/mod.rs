@@ -1,4 +1,4 @@
 pub mod common;
 pub mod health;
-pub mod server;
+pub mod message;
 pub mod test;

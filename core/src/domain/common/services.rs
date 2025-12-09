@@ -1,23 +1,23 @@
-use crate::domain::{health::port::HealthRepository, server::ports::ServerRepository};
+use crate::domain::{health::port::HealthRepository, message::ports::MessageRepository};
 
 #[derive(Clone)]
 pub struct Service<S, H>
 where
-    S: ServerRepository,
+    S: MessageRepository,
     H: HealthRepository,
 {
-    pub(crate) server_repository: S,
+    pub(crate) message_repository: S,
     pub(crate) health_repository: H,
 }
 
 impl<S, H> Service<S, H>
 where
-    S: ServerRepository,
+    S: MessageRepository,
     H: HealthRepository,
 {
-    pub fn new(server_repository: S, health_repository: H) -> Self {
+    pub fn new(message_repository: S, health_repository: H) -> Self {
         Self {
-            server_repository,
+            message_repository,
             health_repository,
         }
     }

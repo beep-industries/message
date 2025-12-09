@@ -1,6 +1,6 @@
 use api::{ApiError, http::server::api_error::ErrorBody};
 use axum::http::StatusCode;
-use communities_core::domain::server::entities::{CreateServerRequest, ServerVisibility};
+use communities_core::domain::message::entities::{CreateMessageRequest, MessageVisibility};
 use serde_json::{Value, json};
 use test_context::test_context;
 use uuid::Uuid;
@@ -8,17 +8,17 @@ use uuid::Uuid;
 pub mod context;
 
 // ============================================================================
-// CREATE SERVER TESTS
+// CREATE MESSAGE TESTS
 // ============================================================================
 
 #[test_context(context::TestContext)]
 #[tokio::test]
-async fn test_create_server_unauthorized(ctx: &mut context::TestContext) {
+async fn test_create_message_unauthorized(ctx: &mut context::TestContext) {
     let res = ctx
         .unauthenticated_router
-        .post("/servers")
+        .post("/messages")
         .json(&json!({
-            "name": "Test Server",
+            "name": "Test Message",
             "owner_id": Uuid::new_v4(),
             "visibility": "Public"
         }))
@@ -30,16 +30,20 @@ async fn test_create_server_unauthorized(ctx: &mut context::TestContext) {
 
 #[test_context(context::TestContext)]
 #[tokio::test]
-async fn test_create_server_success(ctx: &mut context::TestContext) {
-    let input = CreateServerRequest {
-        name: "My Awesome Server".to_string(),
+async fn test_create_message_success(ctx: &mut context::TestContext) {
+    let input = CreateMessageRequest {
+        name: "My Awesome Message".to_string(),
         picture_url: Some("https://example.com/picture.png".to_string()),
         banner_url: Some("https://example.com/banner.png".to_string()),
-        description: Some("A test server for integration testing".to_string()),
-        visibility: ServerVisibility::Public,
+        description: Some("A test message for integration testing".to_string()),
+        visibility: MessageVisibility::Public,
     };
 
-    let res = ctx.authenticated_router.post("/servers").json(&input).await;
+    let res = ctx
+        .authenticated_router
+        .post("/messages")
+        .json(&input)
+        .await;
 
     res.assert_status(StatusCode::CREATED);
 
@@ -47,61 +51,69 @@ async fn test_create_server_success(ctx: &mut context::TestContext) {
     assert!(body.is_object(), "response must be a JSON object");
     assert_eq!(
         body.get("name").and_then(|v| v.as_str()),
-        Some("My Awesome Server")
+        Some("My Awesome Message")
     );
-    assert!(body.get("id").is_some(), "server must have an id");
+    assert!(body.get("id").is_some(), "message must have an id");
     assert!(
         body.get("created_at").is_some(),
-        "server must have created_at"
+        "message must have created_at"
     );
     assert_eq!(
         body.get("description").and_then(|v| v.as_str()),
-        Some("A test server for integration testing")
+        Some("A test message for integration testing")
     );
 }
 
 #[test_context(context::TestContext)]
 #[tokio::test]
-async fn test_create_server_empty_name_fails(ctx: &mut context::TestContext) {
-    let input = CreateServerRequest {
+async fn test_create_message_empty_name_fails(ctx: &mut context::TestContext) {
+    let input = CreateMessageRequest {
         name: "".to_string(),
         picture_url: None,
         banner_url: None,
         description: None,
-        visibility: ServerVisibility::Public,
+        visibility: MessageVisibility::Public,
     };
 
-    let res = ctx.authenticated_router.post("/servers").json(&input).await;
+    let res = ctx
+        .authenticated_router
+        .post("/messages")
+        .json(&input)
+        .await;
 
     res.assert_status(StatusCode::BAD_REQUEST);
 }
 
 #[test_context(context::TestContext)]
 #[tokio::test]
-async fn test_create_server_whitespace_name_fails(ctx: &mut context::TestContext) {
-    let input = CreateServerRequest {
+async fn test_create_message_whitespace_name_fails(ctx: &mut context::TestContext) {
+    let input = CreateMessageRequest {
         name: "   ".to_string(),
         picture_url: None,
         banner_url: None,
         description: None,
-        visibility: ServerVisibility::Public,
+        visibility: MessageVisibility::Public,
     };
 
-    let res = ctx.authenticated_router.post("/servers").json(&input).await;
+    let res = ctx
+        .authenticated_router
+        .post("/messages")
+        .json(&input)
+        .await;
 
     res.assert_status(StatusCode::BAD_REQUEST);
 }
 
 // ============================================================================
-// LIST SERVERS TESTS
+// LIST messages TESTS
 // ============================================================================
 
 #[test_context(context::TestContext)]
 #[tokio::test]
-async fn test_list_servers_unauthorized(ctx: &mut context::TestContext) {
+async fn test_list_messages_unauthorized(ctx: &mut context::TestContext) {
     let res = ctx
         .unauthenticated_router
-        .get("/servers?page=1&limit=20")
+        .get("/messages?page=1&limit=20")
         .await;
 
     res.assert_status(StatusCode::UNAUTHORIZED);
@@ -110,10 +122,10 @@ async fn test_list_servers_unauthorized(ctx: &mut context::TestContext) {
 
 #[test_context(context::TestContext)]
 #[tokio::test]
-async fn test_list_servers_success(ctx: &mut context::TestContext) {
+async fn test_list_messages_success(ctx: &mut context::TestContext) {
     let res = ctx
         .authenticated_router
-        .get("/servers?page=1&limit=20")
+        .get("/messages?page=1&limit=20")
         .await;
 
     res.assert_status(StatusCode::OK);
@@ -136,10 +148,10 @@ async fn test_list_servers_success(ctx: &mut context::TestContext) {
 
 #[test_context(context::TestContext)]
 #[tokio::test]
-async fn test_list_servers_with_pagination(ctx: &mut context::TestContext) {
+async fn test_list_messages_with_pagination(ctx: &mut context::TestContext) {
     let res = ctx
         .authenticated_router
-        .get("/servers?page=2&limit=5")
+        .get("/messages?page=2&limit=5")
         .await;
 
     res.assert_status(StatusCode::OK);
@@ -149,16 +161,16 @@ async fn test_list_servers_with_pagination(ctx: &mut context::TestContext) {
 }
 
 // ============================================================================
-// GET SERVER TESTS
+// GET MESSAGE TESTS
 // ============================================================================
 
 #[test_context(context::TestContext)]
 #[tokio::test]
-async fn test_get_server_unauthorized(ctx: &mut context::TestContext) {
-    let server_id = Uuid::new_v4();
+async fn test_get_message_unauthorized(ctx: &mut context::TestContext) {
+    let message_id = Uuid::new_v4();
     let res = ctx
         .unauthenticated_router
-        .get(&format!("/servers/{}", server_id))
+        .get(&format!("/messages/{}", message_id))
         .await;
 
     res.assert_status(StatusCode::UNAUTHORIZED);
@@ -167,11 +179,11 @@ async fn test_get_server_unauthorized(ctx: &mut context::TestContext) {
 
 #[test_context(context::TestContext)]
 #[tokio::test]
-async fn test_get_server_not_found(ctx: &mut context::TestContext) {
-    let server_id = Uuid::new_v4();
+async fn test_get_message_not_found(ctx: &mut context::TestContext) {
+    let message_id = Uuid::new_v4();
     let res = ctx
         .authenticated_router
-        .get(&format!("/servers/{}", server_id))
+        .get(&format!("/messages/{}", message_id))
         .await;
 
     res.assert_status(StatusCode::NOT_FOUND);
@@ -179,26 +191,30 @@ async fn test_get_server_not_found(ctx: &mut context::TestContext) {
 
 #[test_context(context::TestContext)]
 #[tokio::test]
-async fn test_get_server_success(ctx: &mut context::TestContext) {
-    // First create a server
-    let input = CreateServerRequest {
-        name: "Server to Get".to_string(),
+async fn test_get_message_success(ctx: &mut context::TestContext) {
+    // First create a message
+    let input = CreateMessageRequest {
+        name: "Message to Get".to_string(),
         picture_url: None,
         banner_url: None,
         description: Some("Test description".to_string()),
-        visibility: ServerVisibility::Public,
+        visibility: MessageVisibility::Public,
     };
 
-    let create_res = ctx.authenticated_router.post("/servers").json(&input).await;
+    let create_res = ctx
+        .authenticated_router
+        .post("/messages")
+        .json(&input)
+        .await;
 
     create_res.assert_status(StatusCode::CREATED);
     let created: Value = create_res.json();
-    let server_id = created.get("id").and_then(|v| v.as_str()).unwrap();
+    let message_id = created.get("id").and_then(|v| v.as_str()).unwrap();
 
-    // Owner can access their public server
+    // Owner can access their public message
     let res = ctx
         .authenticated_router
-        .get(&format!("/servers/{}", server_id))
+        .get(&format!("/messages/{}", message_id))
         .await;
 
     res.assert_status(StatusCode::OK);
@@ -206,7 +222,7 @@ async fn test_get_server_success(ctx: &mut context::TestContext) {
     let body: Value = res.json();
     assert_eq!(
         body.get("name").and_then(|v| v.as_str()),
-        Some("Server to Get")
+        Some("Message to Get")
     );
     assert_eq!(
         body.get("description").and_then(|v| v.as_str()),
@@ -216,25 +232,29 @@ async fn test_get_server_success(ctx: &mut context::TestContext) {
 
 #[test_context(context::TestContext)]
 #[tokio::test]
-async fn test_get_private_server_as_owner_succeeds(ctx: &mut context::TestContext) {
-    // Create a private server
-    let input = CreateServerRequest {
-        name: "Private Server".to_string(),
+async fn test_get_private_message_as_owner_succeeds(ctx: &mut context::TestContext) {
+    // Create a private message
+    let input = CreateMessageRequest {
+        name: "Private Message".to_string(),
         picture_url: None,
         banner_url: None,
         description: Some("Private description".to_string()),
-        visibility: ServerVisibility::Private,
+        visibility: MessageVisibility::Private,
     };
 
-    let create_res = ctx.authenticated_router.post("/servers").json(&input).await;
+    let create_res = ctx
+        .authenticated_router
+        .post("/messages")
+        .json(&input)
+        .await;
     create_res.assert_status(StatusCode::CREATED);
     let created: Value = create_res.json();
-    let server_id = created.get("id").and_then(|v| v.as_str()).unwrap();
+    let message_id = created.get("id").and_then(|v| v.as_str()).unwrap();
 
-    // Owner can access their private server
+    // Owner can access their private message
     let res = ctx
         .authenticated_router
-        .get(&format!("/servers/{}", server_id))
+        .get(&format!("/messages/{}", message_id))
         .await;
 
     res.assert_status(StatusCode::OK);
@@ -242,7 +262,7 @@ async fn test_get_private_server_as_owner_succeeds(ctx: &mut context::TestContex
     let body: Value = res.json();
     assert_eq!(
         body.get("name").and_then(|v| v.as_str()),
-        Some("Private Server")
+        Some("Private Message")
     );
     assert_eq!(
         body.get("visibility").and_then(|v| v.as_str()),
@@ -252,43 +272,47 @@ async fn test_get_private_server_as_owner_succeeds(ctx: &mut context::TestContex
 
 #[test_context(context::TestContext)]
 #[tokio::test]
-async fn test_get_private_server_as_non_owner_fails(ctx: &mut context::TestContext) {
-    // Create a private server with one user
-    let input = CreateServerRequest {
-        name: "Someone Else's Private Server".to_string(),
+async fn test_get_private_message_as_non_owner_fails(ctx: &mut context::TestContext) {
+    // Create a private message with one user
+    let input = CreateMessageRequest {
+        name: "Someone Else's Private Message".to_string(),
         picture_url: None,
         banner_url: None,
         description: Some("Private description".to_string()),
-        visibility: ServerVisibility::Private,
+        visibility: MessageVisibility::Private,
     };
 
-    let create_res = ctx.authenticated_router.post("/servers").json(&input).await;
+    let create_res = ctx
+        .authenticated_router
+        .post("/messages")
+        .json(&input)
+        .await;
     create_res.assert_status(StatusCode::CREATED);
     let created: Value = create_res.json();
-    let server_id = created.get("id").and_then(|v| v.as_str()).unwrap();
+    let message_id = created.get("id").and_then(|v| v.as_str()).unwrap();
 
     // Create a second authenticated router with a different user
     let different_user_router = ctx.create_authenticated_router_with_different_user().await;
 
-    // Different user (non-owner) also gets forbidden for private server
+    // Different user (non-owner) also gets forbidden for private message
     let res = different_user_router
-        .get(&format!("/servers/{}", server_id))
+        .get(&format!("/messages/{}", message_id))
         .await;
 
     res.assert_status(StatusCode::FORBIDDEN);
 }
 
 // ============================================================================
-// UPDATE SERVER TESTS
+// UPDATE MESSAGE TESTS
 // ============================================================================
 
 #[test_context(context::TestContext)]
 #[tokio::test]
-async fn test_update_server_unauthorized(ctx: &mut context::TestContext) {
-    let server_id = Uuid::new_v4();
+async fn test_update_message_unauthorized(ctx: &mut context::TestContext) {
+    let message_id = Uuid::new_v4();
     let res = ctx
         .unauthenticated_router
-        .put(&format!("/servers/{}", server_id))
+        .put(&format!("/messages/{}", message_id))
         .json(&json!({
             "name": "Updated Name"
         }))
@@ -300,11 +324,11 @@ async fn test_update_server_unauthorized(ctx: &mut context::TestContext) {
 
 #[test_context(context::TestContext)]
 #[tokio::test]
-async fn test_update_server_not_found(ctx: &mut context::TestContext) {
-    let server_id = Uuid::new_v4();
+async fn test_update_message_not_found(ctx: &mut context::TestContext) {
+    let message_id = Uuid::new_v4();
     let res = ctx
         .authenticated_router
-        .put(&format!("/servers/{}", server_id))
+        .put(&format!("/messages/{}", message_id))
         .json(&json!({
             "name": "Updated Name"
         }))
@@ -315,26 +339,30 @@ async fn test_update_server_not_found(ctx: &mut context::TestContext) {
 
 #[test_context(context::TestContext)]
 #[tokio::test]
-async fn test_update_server_success(ctx: &mut context::TestContext) {
-    // First create a server
-    let input = CreateServerRequest {
+async fn test_update_message_success(ctx: &mut context::TestContext) {
+    // First create a message
+    let input = CreateMessageRequest {
         name: "Original Name".to_string(),
         picture_url: None,
         banner_url: None,
         description: None,
-        visibility: ServerVisibility::Public,
+        visibility: MessageVisibility::Public,
     };
 
-    let create_res = ctx.authenticated_router.post("/servers").json(&input).await;
+    let create_res = ctx
+        .authenticated_router
+        .post("/messages")
+        .json(&input)
+        .await;
 
     create_res.assert_status(StatusCode::CREATED);
     let created: Value = create_res.json();
-    let server_id = created.get("id").and_then(|v| v.as_str()).unwrap();
+    let message_id = created.get("id").and_then(|v| v.as_str()).unwrap();
 
-    // Update the server
+    // Update the message
     let res = ctx
         .authenticated_router
-        .put(&format!("/servers/{}", server_id))
+        .put(&format!("/messages/{}", message_id))
         .json(&json!({
             "name": "Updated Name",
             "description": "New description"
@@ -356,26 +384,30 @@ async fn test_update_server_success(ctx: &mut context::TestContext) {
 
 #[test_context(context::TestContext)]
 #[tokio::test]
-async fn test_update_server_partial_update(ctx: &mut context::TestContext) {
-    // First create a server
-    let input = CreateServerRequest {
-        name: "Original Server".to_string(),
+async fn test_update_message_partial_update(ctx: &mut context::TestContext) {
+    // First create a message
+    let input = CreateMessageRequest {
+        name: "Original Message".to_string(),
         picture_url: Some("old-pic.png".to_string()),
         banner_url: None,
         description: Some("Original description".to_string()),
-        visibility: ServerVisibility::Public,
+        visibility: MessageVisibility::Public,
     };
 
-    let create_res = ctx.authenticated_router.post("/servers").json(&input).await;
+    let create_res = ctx
+        .authenticated_router
+        .post("/messages")
+        .json(&input)
+        .await;
 
     create_res.assert_status(StatusCode::CREATED);
     let created: Value = create_res.json();
-    let server_id = created.get("id").and_then(|v| v.as_str()).unwrap();
+    let message_id = created.get("id").and_then(|v| v.as_str()).unwrap();
 
     // Partial update - only change description
     let res = ctx
         .authenticated_router
-        .put(&format!("/servers/{}", server_id))
+        .put(&format!("/messages/{}", message_id))
         .json(&json!({
             "description": "Updated description only"
         }))
@@ -387,7 +419,7 @@ async fn test_update_server_partial_update(ctx: &mut context::TestContext) {
     // Name should remain unchanged
     assert_eq!(
         body.get("name").and_then(|v| v.as_str()),
-        Some("Original Server")
+        Some("Original Message")
     );
     // Description should be updated
     assert_eq!(
@@ -398,26 +430,30 @@ async fn test_update_server_partial_update(ctx: &mut context::TestContext) {
 
 #[test_context(context::TestContext)]
 #[tokio::test]
-async fn test_update_server_empty_name_fails(ctx: &mut context::TestContext) {
-    // First create a server
-    let input = CreateServerRequest {
+async fn test_update_message_empty_name_fails(ctx: &mut context::TestContext) {
+    // First create a message
+    let input = CreateMessageRequest {
         name: "Valid Name".to_string(),
         picture_url: None,
         banner_url: None,
         description: None,
-        visibility: ServerVisibility::Public,
+        visibility: MessageVisibility::Public,
     };
 
-    let create_res = ctx.authenticated_router.post("/servers").json(&input).await;
+    let create_res = ctx
+        .authenticated_router
+        .post("/messages")
+        .json(&input)
+        .await;
 
     create_res.assert_status(StatusCode::CREATED);
     let created: Value = create_res.json();
-    let server_id = created.get("id").and_then(|v| v.as_str()).unwrap();
+    let message_id = created.get("id").and_then(|v| v.as_str()).unwrap();
 
     // Try to update with empty name
     let res = ctx
         .authenticated_router
-        .put(&format!("/servers/{}", server_id))
+        .put(&format!("/messages/{}", message_id))
         .json(&json!({
             "name": ""
         }))
@@ -427,16 +463,16 @@ async fn test_update_server_empty_name_fails(ctx: &mut context::TestContext) {
 }
 
 // ============================================================================
-// DELETE SERVER TESTS
+// DELETE MESSAGE TESTS
 // ============================================================================
 
 #[test_context(context::TestContext)]
 #[tokio::test]
-async fn test_delete_server_unauthorized(ctx: &mut context::TestContext) {
-    let server_id = Uuid::new_v4();
+async fn test_delete_message_unauthorized(ctx: &mut context::TestContext) {
+    let message_id = Uuid::new_v4();
     let res = ctx
         .unauthenticated_router
-        .delete(&format!("/servers/{}", server_id))
+        .delete(&format!("/messages/{}", message_id))
         .await;
 
     res.assert_status(StatusCode::UNAUTHORIZED);
@@ -445,11 +481,11 @@ async fn test_delete_server_unauthorized(ctx: &mut context::TestContext) {
 
 #[test_context(context::TestContext)]
 #[tokio::test]
-async fn test_delete_server_not_found(ctx: &mut context::TestContext) {
-    let server_id = Uuid::new_v4();
+async fn test_delete_message_not_found(ctx: &mut context::TestContext) {
+    let message_id = Uuid::new_v4();
     let res = ctx
         .authenticated_router
-        .delete(&format!("/servers/{}", server_id))
+        .delete(&format!("/messages/{}", message_id))
         .await;
 
     res.assert_status(StatusCode::NOT_FOUND);
@@ -457,26 +493,30 @@ async fn test_delete_server_not_found(ctx: &mut context::TestContext) {
 
 #[test_context(context::TestContext)]
 #[tokio::test]
-async fn test_delete_server_success(ctx: &mut context::TestContext) {
-    // First create a server
-    let input = CreateServerRequest {
-        name: "Server to Delete".to_string(),
+async fn test_delete_message_success(ctx: &mut context::TestContext) {
+    // First create a message
+    let input = CreateMessageRequest {
+        name: "Message to Delete".to_string(),
         picture_url: None,
         banner_url: None,
         description: None,
-        visibility: ServerVisibility::Public,
+        visibility: MessageVisibility::Public,
     };
 
-    let create_res = ctx.authenticated_router.post("/servers").json(&input).await;
+    let create_res = ctx
+        .authenticated_router
+        .post("/messages")
+        .json(&input)
+        .await;
 
     create_res.assert_status(StatusCode::CREATED);
     let created: Value = create_res.json();
-    let server_id = created.get("id").and_then(|v| v.as_str()).unwrap();
+    let message_id = created.get("id").and_then(|v| v.as_str()).unwrap();
 
-    // Delete the server
+    // Delete the message
     let res = ctx
         .authenticated_router
-        .delete(&format!("/servers/{}", server_id))
+        .delete(&format!("/messages/{}", message_id))
         .await;
 
     res.assert_status(StatusCode::OK);
@@ -484,7 +524,7 @@ async fn test_delete_server_success(ctx: &mut context::TestContext) {
     // Verify it's deleted by trying to get it
     let get_res = ctx
         .authenticated_router
-        .get(&format!("/servers/{}", server_id))
+        .get(&format!("/messages/{}", message_id))
         .await;
 
     get_res.assert_status(StatusCode::NOT_FOUND);

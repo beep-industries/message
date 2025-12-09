@@ -4,12 +4,12 @@ use crate::domain::{
         entities::IsHealthy,
         port::{HealthRepository, HealthService},
     },
-    server::ports::ServerRepository,
+    message::ports::MessageRepository,
 };
 
 impl<S, H> HealthService for Service<S, H>
 where
-    S: ServerRepository,
+    S: MessageRepository,
     H: HealthRepository,
 {
     async fn check_health(&self) -> Result<IsHealthy, CoreError> {

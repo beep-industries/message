@@ -6,7 +6,7 @@ pub mod infrastructure;
 pub use application::{CommunitiesService, create_repositories};
 pub use domain::common::services::Service;
 pub use infrastructure::health::repositories::postgres::PostgresHealthRepository;
-pub use infrastructure::server::repositories::postgres::PostgresServerRepository;
+pub use infrastructure::message::repositories::postgres::PostgresMessageRepository;
 
 // Re-export outbox pattern primitives
 pub use infrastructure::outbox::write_outbox_event;
