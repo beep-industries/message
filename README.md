@@ -1,57 +1,145 @@
-# Messaging Service
+# Communities service
 
-This repository contains a small Rust-based messaging service. The project includes an OpenAPI specification (`swagger.yaml`) and can be run locally using Docker Compose and Cargo.
+The Communities service is designed to facilitate the creation, management, and interaction of user communities within the platform.
+It will handle:
+
+- Servers
+- Members
+- Roles
+- Channels
 
 ## Prerequisites
 
-- Docker and Docker Compose
-- Rust toolchain (cargo)
-- A copy of `.env.template` configured as needed
+- [Docker](https://www.docker.com/get-started/)
+- Rust and Cargo
+- [sqlx-cli](https://crates.io/crates/sqlx-cli)
 
-## Quick start
+## Quickstart
 
-1. Copy the example environment file:
 
-   ```bash
-   cp .env.template .env
-   ```
+Launch postgres:
 
-2. Start required services using Docker Compose (runs in detached mode):
+```bash
+docker compose up -d postgres
+```
+Create the .env file to let sqlx know how to connect to the database:
 
-   ```bash
-   docker compose up -d
-   ```
+```bash
+cp .env.example .env
+```
 
-   This will start any configured services such as MongoDB and mongo-express.
+Run migrations:
 
-3. Access mongo-express in your browser:
+```bash
+sqlx migrate run --source core/migrations
+```
 
-   http://localhost:8081
+Launch the API server:
 
-4. Run the application with Cargo:
+```bash
+cargo run --bin api
+```
+The application runs two servers on separate ports:
+- **Health server** on `http://localhost:9090` - Isolated health checks (prevents DDOS on API)
+  - `GET /health` - Health check with database connectivity
+- **API server** on `http://localhost:3001` - Main application endpoints
+  - Future business logic endpoints will be added here
 
-   ```bash
-   cargo run
-   ```
+This dual-server architecture provides DDOS protection by isolating health checks from API traffic.
 
-   The server will start according to the configuration in the project. See `swagger.yaml` for the API specification.
+## Configuration
 
-## API documentation
+You can pass down some configuration using `--help`:
 
-The OpenAPI specification is provided in `swagger.yaml` at the repository root. You can use it with tools like Swagger UI or Postman to explore the API endpoints.
+```bash
+cargo run --bin api -- --help
+```
 
-## Useful commands
+You can now see all the possible way to configure the service:
+```bash
+Communities API Server
 
-- Copy environment template: `cp .env.template .env`
-- Start services: `docker compose up -d`
-- Stop services: `docker compose down`
-- Run the app: `cargo run`
+Usage: api [OPTIONS] --database-password <database_password> --jwt-secret-key <jwt_secret_key>
 
-## Notes
+Options:
+      --database-host <HOST>
+          [env: DATABASE_HOST=] [default: localhost]
+      --database-port <PORT>
+          [env: DATABASE_PORT=] [default: 5432]
+      --database-user <USER>
+          [env: DATABASE_USER=] [default: postgres]
+      --database-password <database_password>
+          [env: DATABASE_PASSWORD=]
+      --database-name <database_name>
+          [env: DATABASE_NAME=] [default: communities]
+      --jwt-secret-key <jwt_secret_key>
+          [env: JWT_SECRET_KEY=a-string-secret-at-least-256-bits-long]
+      --server-api-port <api_port>
+          [env: API_PORT=3001] [default: 8080]
+      --server-health-port <HEALTH_PORT>
+          [env: HEALTH_PORT=9090] [default: 8081]
+  -h, --help
+          Print help
+```
 
-- Ensure `.env` contains correct credentials and connection strings for the services started by Docker Compose.
-- The repository contains an example OpenAPI spec (`swagger.yaml`) describing the endpoints, request/response models, and security scheme.
+## Persistence
 
-## Contributing
+To persist data we use PostgreSQL. To handle uuid inside the database we use the `pg-crypto` extension.
+In dev mode it should be enabled automatically due to the init script you can find in [`compose/init-uuid.sql`](compose/init-uuid.sql).
 
-Please open issues or pull requests for improvements or bug fixes.
+The sql migration files are located in the [`core/migrations`](core/migrations) folder.
+
+## Apply Database Migrations
+
+Before running the API in development (or when setting up a fresh DB), apply the migrations:
+
+```zsh
+# Start Postgres (if not already running)
+docker compose up -d postgres
+
+# Apply all pending migrations
+sqlx migrate run --source core/migrations --database-url postgres://postgres:password@localhost:5432/communities
+
+# (Optional) Show migration status
+sqlx migrate info --source core/migrations --database-url postgres://postgres:password@localhost:5432/communities
+```
+
+## How to create a SQLx migration
+
+```
+sqlx migrate add <migration-name> --source core/migrations
+```
+
+## Running tests
+
+There are two kinds of tests in this repo:
+
+- Infrastructure tests that hit a real Postgres database (via `sqlx::test`).
+- Domain tests that use mocked repositories (no database required).
+
+Recommended workflow for all tests (infrastructure + domain):
+
+```zsh
+# 1) Start Postgres from docker-compose
+docker compose up -d postgres
+
+# 2) Point SQLx to your database server (the tests will create/drop their own DBs)
+export DATABASE_URL="postgres://postgres:password@localhost:5432/communities"
+
+# 3) Run tests for the core crate (includes infrastructure + domain tests)
+cargo test -p communities_core -- --nocapture
+
+# Or run the entire workspace
+cargo test --workspace -- --nocapture
+```
+
+Run only domain tests (no DB needed):
+
+```zsh
+cargo test domain::test -- -q
+```
+
+Notes:
+- `#[sqlx::test(migrations = "./migrations")]` automatically applies migrations to an isolated test database.
+- Only a reachable Postgres server and `DATABASE_URL` env var are required; you do not need to run migrations manually for tests.
+ - If you run the API or any non-`sqlx::test` integration tests that expect existing tables, apply migrations first (see "Apply Database Migrations" below).

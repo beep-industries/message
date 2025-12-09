@@ -1,33 +1,17 @@
 services:
-  mongo:
-    image: mongo:8.2.1
-    container_name: message_mongo
-    restart: unless-stopped
+  postgres:
+    image: postgres:17
+    container_name: communities_postgres
     environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: example
-      MONGO_INITDB_DATABASE: message
+      POSTGRES_DB: communities
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
     ports:
-      - "27017:27017"
+      - "5432:5432"
     volumes:
-      - mongo-data:/data/db
-
-  mongo-express:
-    image: mongo-express:latest
-    container_name: message_mongo_express
+      - postgres_data:/var/lib/postgresql/data
+      - ./compose/init-uuid.sql:/docker-entrypoint-initdb.d/01-init-uuid.sql
     restart: unless-stopped
-    depends_on:
-      - mongo
-    environment:
-      ME_CONFIG_MONGODB_ADMINUSERNAME: root
-      ME_CONFIG_MONGODB_ADMINPASSWORD: example
-      ME_CONFIG_MONGODB_SERVER: mongo
-      ME_CONFIG_MONGODB_PORT: 27017
-      ME_CONFIG_MONGODB_AUTH_DATABASE: admin
-      ME_CONFIG_BASICAUTH_USERNAME: admin
-      ME_CONFIG_BASICAUTH_PASSWORD: password
-    ports:
-      - "8081:8081"
 
 volumes:
-  mongo-data:
+  postgres_data:
