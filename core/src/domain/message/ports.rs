@@ -186,12 +186,13 @@ impl MessageRepository for MockMessageRepository {
 
         let new_message = Message {
             id: MessageId::from(uuid::Uuid::new_v4()),
-            name: input.name,
-            banner_url: input.banner_url,
-            picture_url: input.picture_url,
-            description: input.description,
-            owner_id: input.owner_id,
-            visibility: input.visibility,
+            channel_id: input.channel_id,
+            author_id: input.author_id,
+            content: input.content,
+            reply_to_message_id: input.reply_to_message_id,
+            attachments: input.attachments,
+            is_pinned: false,
+
             created_at: chrono::Utc::now(),
             updated_at: None,
         };
@@ -211,20 +212,11 @@ impl MessageRepository for MockMessageRepository {
                 id: input.id.clone(),
             })?;
 
-        if let Some(name) = input.name {
-            message.name = name;
+        if let Some(content) = input.content {
+            message.content = content;
         }
-        if let Some(picture_url) = input.picture_url {
-            message.picture_url = Some(picture_url);
-        }
-        if let Some(banner_url) = input.banner_url {
-            message.banner_url = Some(banner_url);
-        }
-        if let Some(description) = input.description {
-            message.description = Some(description);
-        }
-        if let Some(visibility) = input.visibility {
-            message.visibility = visibility;
+        if let Some(is_pinned) = input.is_pinned {
+            message.is_pinned = is_pinned;
         }
         message.updated_at = Some(chrono::Utc::now());
 

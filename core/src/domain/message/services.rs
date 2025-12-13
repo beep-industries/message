@@ -13,8 +13,8 @@ where
     H: HealthRepository,
 {
     async fn create_message(&self, input: InsertMessageInput) -> Result<Message, CoreError> {
-        // Validate message name is not empty
-        if input.name.trim().is_empty() {
+        // Validate message content is not empty
+        if input.content.trim().is_empty() {
             return Err(CoreError::InvalidMessageName);
         }
 
@@ -58,13 +58,6 @@ where
             return Err(CoreError::MessageNotFound {
                 id: input.id.clone(),
             });
-        }
-
-        // Validate name if it's being updated
-        if let Some(ref name) = input.name {
-            if name.trim().is_empty() {
-                return Err(CoreError::InvalidMessageName);
-            }
         }
 
         // @TODO Authorization: Verify user is the message owner or has admin privileges

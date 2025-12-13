@@ -364,6 +364,7 @@ dependencies = [
  "sqlx",
  "thiserror",
  "tokio",
+ "url",
  "utoipa",
  "uuid",
 ]
