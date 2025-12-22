@@ -1,6 +1,5 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use url::Url;
 use utoipa::ToSchema;
 use uuid::Uuid;
 
@@ -92,11 +91,12 @@ impl From<AttachmentId> for Uuid {
 pub struct Attachment {
     pub id: AttachmentId,
     pub name: String,
-    pub url: Url,
+    pub url: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct Message {
+    #[serde(rename = "_id")]
     pub id: MessageId,
     pub channel_id: ChannelId,
     pub author_id: AuthorId,

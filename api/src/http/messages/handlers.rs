@@ -5,16 +5,13 @@ use axum::{
 use communities_core::domain::{
     common::GetPaginated,
     message::{
-        entities::{
-            CreateMessageRequest, Message, MessageId, MessageVisibility, OwnerId,
-            UpdateMessageRequest,
-        },
+        entities::{AuthorId, CreateMessageRequest, Message, MessageId, UpdateMessageRequest},
         ports::MessageService,
     },
 };
 use uuid::Uuid;
 
-use crate::http::message::{
+use crate::http::server::{
     ApiError, AppState, Response, middleware::auth::entities::UserIdentity,
     response::PaginatedResponse,
 };
@@ -36,7 +33,7 @@ pub async fn create_message(
     Extension(user_identity): Extension<UserIdentity>,
     Json(request): Json<CreateMessageRequest>,
 ) -> Result<Response<Message>, ApiError> {
-    let owner_id = OwnerId::from(user_identity.user_id);
+    let owner_id = AuthorId::from(user_identity.user_id);
     let input = request.into_input(owner_id);
     let message = state.service.create_message(input).await?;
     Ok(Response::created(message))
@@ -60,17 +57,11 @@ pub async fn create_message(
 pub async fn get_message(
     Path(id): Path<Uuid>,
     State(state): State<AppState>,
-    Extension(user_identity): Extension<UserIdentity>,
 ) -> Result<Response<Message>, ApiError> {
     let message_id = MessageId::from(id);
     let message = state.service.get_message(&message_id).await?;
 
-    // Only allow access to public messages or if user is the owner
-    if message.visibility != MessageVisibility::Public
-        && message.owner_id.0 != user_identity.user_id
-    {
-        return Err(ApiError::Forbidden);
-    }
+    //FIXME: Check that user is allowed to see the message. (is in the channel's server etc)
 
     Ok(Response::ok(message))
 }
@@ -131,9 +122,10 @@ pub async fn update_message(
 
     // Check if message exists and user is the owner
     let existing_message = state.service.get_message(&message_id).await?;
-    if existing_message.owner_id.0 != user_identity.user_id {
+    if existing_message.author_id.0 != user_identity.user_id {
         return Err(ApiError::Forbidden);
     }
+    //FIXME: Check that user is authorized to update the message, not just is the author
 
     let input = request.into_input(message_id);
     let message = state.service.update_message(input).await?;
@@ -164,9 +156,10 @@ pub async fn delete_message(
 
     // Check if message exists and user is the owner
     let existing_message = state.service.get_message(&message_id).await?;
-    if existing_message.owner_id.0 != user_identity.user_id {
+    if existing_message.author_id.0 != user_identity.user_id {
         return Err(ApiError::Forbidden);
     }
+    //FIXME: Check that user is authorized to update the message, not just is the author
 
     state.service.delete_message(&message_id).await?;
     Ok(Response::deleted(()))

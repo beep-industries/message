@@ -10,23 +10,21 @@ name = "communities_core"
 path = "src/lib.rs"
 
 [features]
-default = ["postgres"]
-postgres = []
+default = ["mongo"]
+mongo = []
 
 [dependencies]
 chrono = { version = "0.4.42", features = ["serde"] }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0"
-sqlx = { version = "0.8.6", features = [
-    "postgres",
-    "runtime-tokio",
-    "uuid",
-    "chrono",
-] }
 uuid = { version = "1.18.1", features = ["serde", "v4"] }
 thiserror = { workspace = true }
 utoipa = { version = "5.4.0", features = ["uuid", "chrono"] }
 url = "2.5.7"
+mongodb = "3.4.1"
+futures = "0.3.31"
+tracing = "0.1.44"
+bson = { version = "2", features = ["uuid-1"] }
 
 [dev-dependencies]
 mockall = "0.13.1"

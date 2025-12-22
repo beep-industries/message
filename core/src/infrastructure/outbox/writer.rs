@@ -1,86 +1,52 @@
+use mongodb::{
+    Collection, Database,
+    bson::{DateTime as BsonDateTime, doc, to_bson},
+};
+use serde::Serialize;
+use uuid::Uuid;
+
 use crate::{
     domain::common::CoreError,
     infrastructure::outbox::event::{MessageRouter, OutboxEventRecord},
 };
-use chrono::Utc;
-use serde::Serialize;
-use serde_json;
-use sqlx::PgExecutor;
-use uuid::Uuid;
 
-/// Write an event to the outbox table within an existing transaction.
-///
-/// This function serializes the event to JSONB and inserts it into the `outbox_messages` table
-/// with status='READY'. The insert happens within the provided executor/transaction, ensuring
-/// atomicity with your business logic writes.
-///
-/// # Arguments
-///
-/// * `executor` - A SQLx Postgres executor (transaction or pool)
-/// * `event` - The event to write, must implement `OutboxEvent` and `Serialize`
-///
-/// # Returns
-///
-/// The UUID of the inserted outbox message on success, or an `OutboxError` on failure.
-///
-/// # Example
-///
-/// ```rust,no_run
-/// use sqlx::PgPool;
-/// use communities_core::infrastructure::outbox::{write_outbox_event, OutboxEventRecord, MessageRoutingInfo};
-/// use serde::Serialize;
-///
-/// #[derive(Serialize, Clone)]
-/// struct MyEvent { data: String }
-///
-/// #[tokio::main]
-/// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-///     let pool = PgPool::connect("postgres://postgres:password@localhost:5432/communities").await?;
-///     let mut tx = pool.begin().await?;
-///
-///     // Define routing and event payload
-///     let router = MessageRoutingInfo::new("my.exchange".to_string(), "my.key".to_string());
-///     let event = OutboxEventRecord::new(router, MyEvent { data: "test".to_string() });
-///
-///     // Write event to outbox within the transaction
-///     let _event_id = write_outbox_event(&mut *tx, &event).await?;
-///     tx.commit().await?;
-///     Ok(())
-/// }
-/// ```
-pub async fn write_outbox_event<'e, E, TPayload, TRouter>(
-    executor: E,
+const OUTBOX_COLLECTION: &str = "outbox_messages";
+
+#[derive(Debug, Serialize)]
+struct OutboxDocument {
+    #[serde(rename = "_id")]
+    id: Uuid,
+    exchange_name: String,
+    routing_key: String,
+    payload: mongodb::bson::Bson,
+    status: String,
+    created_at: BsonDateTime,
+}
+
+pub async fn write_outbox_event<TPayload, TRouter>(
+    db: &Database,
     event: &OutboxEventRecord<TPayload, TRouter>,
 ) -> Result<Uuid, CoreError>
 where
-    E: PgExecutor<'e>,
-    TPayload: Serialize,
-    TRouter: MessageRouter,
+    TPayload: Serialize + Send + Sync,
+    TRouter: MessageRouter + Send + Sync,
 {
-    let exchange_name = event.router.exchange_name();
-    let routing_key = event.router.routing_key();
-    let created_at = Utc::now();
-
-    // Serialize event to JSON
-    let payload = serde_json::to_value(event)
+    let payload = to_bson(&event.payload)
         .map_err(|e| CoreError::SerializationError { msg: e.to_string() })?;
 
-    // Insert into outbox_messages table
-    let query = r#"
-        INSERT INTO outbox_messages (id, exchange_name, routing_key, payload, status, failed_at, created_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-        ON CONFLICT (id) DO NOTHING
-    "#;
+    let doc = OutboxDocument {
+        id: event.id,
+        exchange_name: event.router.exchange_name().to_string(),
+        routing_key: event.router.routing_key().to_string(),
+        payload,
+        status: "READY".to_string(),
+        created_at: BsonDateTime::now(),
+    };
 
-    sqlx::query(query)
-        .bind(event.id)
-        .bind(exchange_name)
-        .bind(routing_key)
-        .bind(payload)
-        .bind("READY")
-        .bind(None::<chrono::DateTime<Utc>>)
-        .bind(created_at)
-        .execute(executor)
+    let collection: Collection<OutboxDocument> = db.collection(OUTBOX_COLLECTION);
+
+    collection
+        .insert_one(doc)
         .await
         .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
 

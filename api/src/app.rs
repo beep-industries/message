@@ -1,6 +1,5 @@
 use axum::middleware::from_extractor_with_state;
 use communities_core::create_repositories;
-use sqlx::postgres::PgConnectOptions;
 use utoipa::OpenApi;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_scalar::{Scalar, Servable};
@@ -9,7 +8,7 @@ use crate::{
     Config,
     http::{
         health::routes::health_routes,
-        message::{
+        server::{
             ApiError, AppState, middleware::auth::AuthMiddleware,
             middleware::auth::entities::AuthValidator,
         },
@@ -35,20 +34,13 @@ pub struct App {
 
 impl App {
     pub async fn new(config: Config) -> Result<Self, ApiError> {
-        let state: AppState = create_repositories(
-            PgConnectOptions::new()
-                .host(&config.database.host)
-                .port(config.database.port)
-                .username(&config.database.user)
-                .password(&config.database.password)
-                .database(&config.database.db_name),
-            config.clone().routing,
-        )
-        .await
-        .map_err(|e| ApiError::StartupError {
-            msg: format!("Failed to create repositories: {}", e),
-        })?
-        .into();
+        let state: AppState =
+            create_repositories(&config.database.mongo_uri, &config.database.mongo_db_name)
+                .await
+                .map_err(|e| ApiError::StartupError {
+                    msg: format!("Failed to create repositories: {}", e),
+                })?
+                .into();
         let auth_validator = AuthValidator::new(config.clone().jwt.secret_key);
         let (app_router, mut api) = OpenApiRouter::<AppState>::new()
             .merge(message_routes())

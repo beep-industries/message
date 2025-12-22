@@ -1,5 +1,5 @@
 use api::app::App;
-use api::http::message::ApiError;
+use api::http::server::ApiError;
 use dotenv::dotenv;
 
 use api::config::Config;

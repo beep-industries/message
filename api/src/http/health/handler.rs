@@ -5,7 +5,7 @@ use utoipa::ToSchema;
 
 use communities_core::domain::health::port::HealthService;
 
-use crate::http::message::{ApiError, AppState, Response};
+use crate::http::server::{ApiError, AppState, Response};
 
 /// Response structure for the health check
 #[derive(Debug, Clone, Serialize, ToSchema)]

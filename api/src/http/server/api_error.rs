@@ -74,8 +74,8 @@ impl From<CoreError> for ApiError {
             CoreError::Unhealthy => ApiError::ServiceUnavailable {
                 msg: "Service is unhealthy".to_string(),
             },
-            CoreError::ServerNotFound { .. } => ApiError::NotFound,
-            CoreError::InvalidServerName => ApiError::BadRequest {
+            CoreError::MessageNotFound { .. } => ApiError::NotFound,
+            CoreError::InvalidMessageName => ApiError::BadRequest {
                 msg: "Server name cannot be empty".to_string(),
             },
             _ => ApiError::InternalServerError,

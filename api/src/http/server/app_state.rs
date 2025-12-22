@@ -14,14 +14,14 @@ impl AppState {
 
     /// Shutdown the underlying database pool
     pub async fn shutdown(&self) {
-        self.service.shutdown_pool().await
+        self.service.shutdown().await
     }
 }
 
 impl From<CommunitiesRepositories> for AppState {
     fn from(repositories: CommunitiesRepositories) -> Self {
         let service = CommunitiesService::new(
-            repositories.server_repository,
+            repositories.message_repository,
             repositories.health_repository,
         );
         AppState { service }

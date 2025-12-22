@@ -1,111 +1,60 @@
-use serde::Serialize;
-use sqlx::PgExecutor;
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-use crate::{domain::common::CoreError, write_outbox_event};
-
-/// A record representing an outbox event to be published to a message broker.
-///
-/// This struct encapsulates an event payload along with routing information,
-/// following the transactional outbox pattern to ensure reliable message delivery.
-///
-/// # Type Parameters
-///
-/// * `TPayload` - The type of the event payload, must be serializable
-/// * `TRouter` - The type that provides message routing information
-pub struct OutboxEventRecord<TPayload: Serialize, TRouter: MessageRouter> {
-    /// Unique identifier for this outbox event
+/// Outbox event record (domain-level abstraction)
+#[derive(Debug, Clone)]
+pub struct OutboxEventRecord<TPayload, TRouter>
+where
+    TPayload: Serialize + Send + Sync,
+    TRouter: MessageRouter + Send + Sync,
+{
     pub id: Uuid,
-    /// Router providing exchange and routing key information
     pub router: TRouter,
-    /// The event payload to be serialized and published
     pub payload: TPayload,
 }
 
-impl<TPayload: Serialize + Clone, TRouter: MessageRouter> OutboxEventRecord<TPayload, TRouter> {
-    /// Creates a new outbox event record with a generated UUID.
-    ///
-    /// # Arguments
-    ///
-    /// * `router` - The message router providing routing information
-    /// * `payload` - The event payload to be published
-    ///
-    /// # Returns
-    ///
-    /// A new `OutboxEventRecord` with a randomly generated UUID
+impl<TPayload, TRouter> OutboxEventRecord<TPayload, TRouter>
+where
+    TPayload: Serialize + Send + Sync,
+    TRouter: MessageRouter + Send + Sync,
+{
     pub fn new(router: TRouter, payload: TPayload) -> Self {
-        let uuid = Uuid::new_v4();
         Self {
-            id: uuid,
+            id: Uuid::new_v4(),
             router,
             payload,
         }
     }
-
-    /// Writes this outbox event to the database.
-    ///
-    /// # Arguments
-    ///
-    /// * `executor` - A PostgreSQL executor (connection or transaction)
-    ///
-    /// # Returns
-    ///
-    /// The UUID of the written event on success, or a `CoreError` on failure
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the database write operation fails
-    pub async fn write(&self, executor: impl PgExecutor<'_>) -> Result<Uuid, CoreError> {
-        write_outbox_event(executor, self).await
-    }
 }
 
-/// Message routing information containing the exchange name and routing key.
-///
-/// This struct encapsulates the routing metadata required to publish
-/// a message to the correct destination in a message broker.
-#[derive(Clone, Debug, Default, serde::Deserialize, serde::Serialize)]
-pub struct MessageRoutingInfo(ExchangeName, RoutingKey);
+/// Routing info (infrastructure-friendly, domain-safe)
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
+pub struct MessageRoutingInfo {
+    pub exchange: String,
+    pub routing_key: String,
+}
 
 impl MessageRoutingInfo {
-    /// Creates a new `MessageRoutingInfo` instance.
-    ///
-    /// # Arguments
-    ///
-    /// * `exchange_name` - The name of the message broker exchange
-    /// * `routing_key` - The routing key for message delivery
-    pub fn new(exchange_name: ExchangeName, routing_key: RoutingKey) -> Self {
-        Self(exchange_name, routing_key)
+    pub fn new(exchange: impl Into<String>, routing_key: impl Into<String>) -> Self {
+        Self {
+            exchange: exchange.into(),
+            routing_key: routing_key.into(),
+        }
     }
 }
 
-/// Trait for types that can provide message routing information.
-///
-/// Implementors must provide both an exchange name and routing key
-/// for publishing messages to a message broker.
+/// Router abstraction
 pub trait MessageRouter {
-    fn exchange_name(&self) -> String;
-    fn routing_key(&self) -> String;
+    fn exchange_name(&self) -> &str;
+    fn routing_key(&self) -> &str;
 }
 
 impl MessageRouter for MessageRoutingInfo {
-    fn exchange_name(&self) -> String {
-        self.0.clone()
+    fn exchange_name(&self) -> &str {
+        &self.exchange
     }
-    fn routing_key(&self) -> String {
-        self.1.clone()
-    }
-}
-impl<TPayload: Serialize, TRouter: MessageRouter> Serialize
-    for OutboxEventRecord<TPayload, TRouter>
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        self.payload.serialize(serializer)
-    }
-}
 
-pub type ExchangeName = String;
-pub type RoutingKey = String;
+    fn routing_key(&self) -> &str {
+        &self.routing_key
+    }
+}

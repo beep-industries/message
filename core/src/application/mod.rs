@@ -1,63 +1,63 @@
-use sqlx::{
-    PgPool,
-    postgres::{PgConnectOptions, PgPoolOptions},
-};
+use mongodb::{Client as MongoClient, options::ClientOptions};
+use tracing::info;
 
 use crate::{
     domain::common::{CoreError, services::Service},
     infrastructure::{
-        MessageRoutingInfo, health::repositories::postgres::PostgresHealthRepository,
-        message::repositories::postgres::PostgresMessageRepository,
+        MessageRoutingInfo, health::repositories::mongo::MongoHealthRepository,
+        message::repositories::mongo::MongoMessageRepository,
     },
 };
 
-/// Concrete service type with PostgreSQL repositories (using MockMemberRepository until issue #68 is implemented)
-pub type CommunitiesService = Service<PostgresMessageRepository, PostgresHealthRepository>;
+/// Concrete service type
+pub type CommunitiesService = Service<MongoMessageRepository, MongoHealthRepository>;
 
 #[derive(Clone)]
 pub struct CommunitiesRepositories {
-    pool: PgPool,
-    pub message_repository: PostgresMessageRepository,
-    pub health_repository: PostgresHealthRepository,
+    pub message_repository: MongoMessageRepository,
+    pub health_repository: MongoHealthRepository,
 }
 
 pub async fn create_repositories(
-    pg_connection_options: PgConnectOptions,
-    message_routing_infos: MessageRoutingInfos,
+    mongo_uri: &str,
+    mongo_db_name: &str,
 ) -> Result<CommunitiesRepositories, CoreError> {
-    let pool = PgPoolOptions::new()
-        .max_connections(5)
-        .connect_with(pg_connection_options)
+    let mongo_options = ClientOptions::parse(mongo_uri)
         .await
         .map_err(|e| CoreError::ServiceUnavailable(e.to_string()))?;
-    let message_repository = PostgresMessageRepository::new(
-        pool.clone(),
-        message_routing_infos.delete_message,
-        message_routing_infos.create_message,
-    );
-    let health_repository = PostgresHealthRepository::new(pool.clone());
+
+    let mongo_client = MongoClient::with_options(mongo_options)
+        .map_err(|e| CoreError::ServiceUnavailable(e.to_string()))?;
+
+    let mongo_db = mongo_client.database(mongo_db_name);
+
+    let message_repository = MongoMessageRepository::new(&mongo_db);
+
+    let health_repository = MongoHealthRepository::new(&mongo_db);
+
     Ok(CommunitiesRepositories {
-        pool,
         message_repository,
         health_repository,
     })
 }
 
-impl Into<CommunitiesService> for CommunitiesRepositories {
-    fn into(self) -> CommunitiesService {
-        Service::new(self.message_repository, self.health_repository)
+impl From<CommunitiesRepositories> for CommunitiesService {
+    fn from(repos: CommunitiesRepositories) -> Self {
+        Service::new(repos.message_repository, repos.health_repository)
     }
 }
 
 impl CommunitiesRepositories {
-    pub async fn shutdown_pool(&self) {
-        let _ = &self.pool.close().await;
+    pub async fn shutdown(&self) {
+        info!("closing Mongo DB connection");
+        // MongoDB driver shuts down automatically
     }
 }
 
 impl CommunitiesService {
-    pub async fn shutdown_pool(&self) {
-        self.message_repository.pool.close().await;
+    pub async fn shutdown(&self) {
+        info!("closing Mongo DB connection");
+        // MongoDB driver shuts down automatically
     }
 }
 
