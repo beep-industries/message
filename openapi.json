@@ -13,12 +13,12 @@
     "version": "0.0.1"
   },
   "paths": {
-    "/servers": {
+    "/messages": {
       "get": {
         "tags": [
-          "servers"
+          "messages"
         ],
-        "operationId": "list_servers",
+        "operationId": "list_messages",
         "parameters": [
           {
             "name": "page",
@@ -43,11 +43,11 @@
         ],
         "responses": {
           "200": {
-            "description": "List of servers retrieved successfully",
+            "description": "List of messages retrieved successfully",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/PaginatedResponse_Server"
+                  "$ref": "#/components/schemas/PaginatedResponse_Message"
                 }
               }
             }
@@ -56,20 +56,20 @@
             "description": "Unauthorized"
           },
           "500": {
-            "description": "Internal server error"
+            "description": "Internal message error"
           }
         }
       },
       "post": {
         "tags": [
-          "servers"
+          "messages"
         ],
-        "operationId": "create_server",
+        "operationId": "create_message",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CreateServerRequest"
+                "$ref": "#/components/schemas/CreateMessageRequest"
               }
             }
           },
@@ -77,38 +77,38 @@
         },
         "responses": {
           "201": {
-            "description": "Server created successfully",
+            "description": "Message created successfully",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Server"
+                  "$ref": "#/components/schemas/Message"
                 }
               }
             }
           },
           "400": {
-            "description": "Bad request - Invalid server name"
+            "description": "Bad request - Invalid message name"
           },
           "401": {
             "description": "Unauthorized"
           },
           "500": {
-            "description": "Internal server error"
+            "description": "Internal message error"
           }
         }
       }
     },
-    "/servers/{id}": {
+    "/messages/{id}": {
       "get": {
         "tags": [
-          "servers"
+          "messages"
         ],
-        "operationId": "get_server",
+        "operationId": "get_message",
         "parameters": [
           {
             "name": "id",
             "in": "path",
-            "description": "Server ID",
+            "description": "Message ID",
             "required": true,
             "schema": {
               "type": "string"
@@ -117,11 +117,11 @@
         ],
         "responses": {
           "200": {
-            "description": "Server retrieved successfully",
+            "description": "Message retrieved successfully",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Server"
+                  "$ref": "#/components/schemas/Message"
                 }
               }
             }
@@ -130,26 +130,26 @@
             "description": "Unauthorized"
           },
           "403": {
-            "description": "Forbidden - Server is private"
+            "description": "Forbidden - Message is private"
           },
           "404": {
-            "description": "Server not found"
+            "description": "Message not found"
           },
           "500": {
-            "description": "Internal server error"
+            "description": "Internal message error"
           }
         }
       },
       "put": {
         "tags": [
-          "servers"
+          "messages"
         ],
-        "operationId": "update_server",
+        "operationId": "update_message",
         "parameters": [
           {
             "name": "id",
             "in": "path",
-            "description": "Server ID",
+            "description": "Message ID",
             "required": true,
             "schema": {
               "type": "string"
@@ -160,7 +160,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/UpdateServerRequest"
+                "$ref": "#/components/schemas/UpdateMessageRequest"
               }
             }
           },
@@ -168,42 +168,42 @@
         },
         "responses": {
           "200": {
-            "description": "Server updated successfully",
+            "description": "Message updated successfully",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Server"
+                  "$ref": "#/components/schemas/Message"
                 }
               }
             }
           },
           "400": {
-            "description": "Bad request - Invalid server name"
+            "description": "Bad request - Invalid message name"
           },
           "401": {
             "description": "Unauthorized"
           },
           "403": {
-            "description": "Forbidden - Not the server owner"
+            "description": "Forbidden - Not the message owner"
           },
           "404": {
-            "description": "Server not found"
+            "description": "Message not found"
           },
           "500": {
-            "description": "Internal server error"
+            "description": "Internal message error"
           }
         }
       },
       "delete": {
         "tags": [
-          "servers"
+          "messages"
         ],
-        "operationId": "delete_server",
+        "operationId": "delete_message",
         "parameters": [
           {
             "name": "id",
             "in": "path",
-            "description": "Server ID",
+            "description": "Message ID",
             "required": true,
             "schema": {
               "type": "string"
@@ -212,19 +212,19 @@
         ],
         "responses": {
           "200": {
-            "description": "Server deleted successfully"
+            "description": "Message deleted successfully"
           },
           "401": {
             "description": "Unauthorized"
           },
           "403": {
-            "description": "Forbidden - Not the server owner"
+            "description": "Forbidden - Not the message owner"
           },
           "404": {
-            "description": "Server not found"
+            "description": "Message not found"
           },
           "500": {
-            "description": "Internal server error"
+            "description": "Internal message error"
           }
         }
       }
@@ -232,44 +232,134 @@
   },
   "components": {
     "schemas": {
-      "CreateServerRequest": {
+      "Attachment": {
         "type": "object",
         "required": [
+          "id",
           "name",
-          "visibility"
+          "url"
         ],
         "properties": {
-          "banner_url": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "description": {
-            "type": [
-              "string",
-              "null"
-            ]
+          "id": {
+            "$ref": "#/components/schemas/AttachmentId"
           },
           "name": {
             "type": "string"
           },
-          "picture_url": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "visibility": {
-            "$ref": "#/components/schemas/ServerVisibility"
+          "url": {
+            "type": "string"
           }
         }
       },
-      "OwnerId": {
+      "AttachmentId": {
         "type": "string",
         "format": "uuid"
       },
-      "PaginatedResponse_Server": {
+      "AuthorId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "ChannelId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "CreateMessageRequest": {
+        "type": "object",
+        "required": [
+          "id",
+          "channel_id",
+          "content",
+          "attachments"
+        ],
+        "properties": {
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Attachment"
+            }
+          },
+          "channel_id": {
+            "$ref": "#/components/schemas/ChannelId"
+          },
+          "content": {
+            "type": "string"
+          },
+          "id": {
+            "$ref": "#/components/schemas/MessageId"
+          },
+          "reply_to_message_id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MessageId"
+              }
+            ]
+          }
+        }
+      },
+      "Message": {
+        "type": "object",
+        "required": [
+          "_id",
+          "channel_id",
+          "author_id",
+          "content",
+          "attachments",
+          "is_pinned",
+          "created_at"
+        ],
+        "properties": {
+          "_id": {
+            "$ref": "#/components/schemas/MessageId"
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Attachment"
+            }
+          },
+          "author_id": {
+            "$ref": "#/components/schemas/AuthorId"
+          },
+          "channel_id": {
+            "$ref": "#/components/schemas/ChannelId"
+          },
+          "content": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "is_pinned": {
+            "type": "boolean"
+          },
+          "reply_to_message_id": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/MessageId"
+              }
+            ]
+          },
+          "updated_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time"
+          }
+        }
+      },
+      "MessageId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "PaginatedResponse_Message": {
         "type": "object",
         "required": [
           "data",
@@ -282,42 +372,48 @@
             "items": {
               "type": "object",
               "required": [
-                "id",
-                "name",
-                "owner_id",
-                "visibility",
+                "_id",
+                "channel_id",
+                "author_id",
+                "content",
+                "attachments",
+                "is_pinned",
                 "created_at"
               ],
               "properties": {
-                "banner_url": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
+                "_id": {
+                  "$ref": "#/components/schemas/MessageId"
+                },
+                "attachments": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Attachment"
+                  }
+                },
+                "author_id": {
+                  "$ref": "#/components/schemas/AuthorId"
+                },
+                "channel_id": {
+                  "$ref": "#/components/schemas/ChannelId"
+                },
+                "content": {
+                  "type": "string"
                 },
                 "created_at": {
                   "type": "string",
                   "format": "date-time"
                 },
-                "description": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
+                "is_pinned": {
+                  "type": "boolean"
                 },
-                "id": {
-                  "$ref": "#/components/schemas/ServerId"
-                },
-                "name": {
-                  "type": "string"
-                },
-                "owner_id": {
-                  "$ref": "#/components/schemas/OwnerId"
-                },
-                "picture_url": {
-                  "type": [
-                    "string",
-                    "null"
+                "reply_to_message_id": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/MessageId"
+                    }
                   ]
                 },
                 "updated_at": {
@@ -326,9 +422,6 @@
                     "null"
                   ],
                   "format": "date-time"
-                },
-                "visibility": {
-                  "$ref": "#/components/schemas/ServerVisibility"
                 }
               }
             }
@@ -343,105 +436,19 @@
           }
         }
       },
-      "Server": {
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "owner_id",
-          "visibility",
-          "created_at"
-        ],
-        "properties": {
-          "banner_url": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "description": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "id": {
-            "$ref": "#/components/schemas/ServerId"
-          },
-          "name": {
-            "type": "string"
-          },
-          "owner_id": {
-            "$ref": "#/components/schemas/OwnerId"
-          },
-          "picture_url": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "updated_at": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "format": "date-time"
-          },
-          "visibility": {
-            "$ref": "#/components/schemas/ServerVisibility"
-          }
-        }
-      },
-      "ServerId": {
-        "type": "string",
-        "format": "uuid"
-      },
-      "ServerVisibility": {
-        "type": "string",
-        "enum": [
-          "Public",
-          "Private"
-        ]
-      },
-      "UpdateServerRequest": {
+      "UpdateMessageRequest": {
         "type": "object",
         "properties": {
-          "banner_url": {
+          "content": {
             "type": [
               "string",
               "null"
             ]
           },
-          "description": {
+          "is_pinned": {
             "type": [
-              "string",
+              "boolean",
               "null"
-            ]
-          },
-          "name": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "picture_url": {
-            "type": [
-              "string",
-              "null"
-            ]
-          },
-          "visibility": {
-            "oneOf": [
-              {
-                "type": "null"
-              },
-              {
-                "$ref": "#/components/schemas/ServerVisibility"
-              }
             ]
           }
         }

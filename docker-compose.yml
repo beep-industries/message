@@ -1,17 +1,14 @@
 services:
-  postgres:
-    image: postgres:17
-    container_name: communities_postgres
-    environment:
-      POSTGRES_DB: communities
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+  mongodb:
+    image: mongo:7
+    container_name: messages-mongo
     ports:
-      - "5432:5432"
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: messages
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./compose/init-uuid.sql:/docker-entrypoint-initdb.d/01-init-uuid.sql
-    restart: unless-stopped
+      - mongo_data:/data/db
 
 volumes:
-  postgres_data:
+  mongo_data:
+

@@ -45,16 +45,16 @@ impl Config {
 #[derive(Clone, Parser, Debug, Default)]
 pub struct DatabaseConfig {
     #[arg(
-        long = "database-host",
-        env = "DATABASE_HOST",
-        default_value = "localhost"
+        long = "database-uri",
+        env = "DATABASE_URI",
+        default_value = "mongodb://localhost:27017/messages"
     )]
     pub mongo_uri: String,
 
     #[arg(
         long = "database-name",
         env = "DATABASE_NAME",
-        default_value = "communities",
+        default_value = "messages",
         value_name = "database_name"
     )]
     pub mongo_db_name: String,

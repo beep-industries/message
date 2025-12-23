@@ -4,7 +4,8 @@ use tracing::info;
 use crate::{
     domain::common::{CoreError, services::Service},
     infrastructure::{
-        MessageRoutingInfo, health::repositories::mongo::MongoHealthRepository,
+        MessageRoutingInfo,
+        health::repositories::mongo::{self, MongoHealthRepository},
         message::repositories::mongo::MongoMessageRepository,
     },
 };
