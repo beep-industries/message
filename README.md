@@ -65,14 +65,8 @@ Communities API Server
 Usage: api [OPTIONS] --database-password <database_password> --jwt-secret-key <jwt_secret_key>
 
 Options:
-      --database-host <HOST>
-          [env: DATABASE_HOST=] [default: localhost]
-      --database-port <PORT>
-          [env: DATABASE_PORT=] [default: 5432]
-      --database-user <USER>
-          [env: DATABASE_USER=] [default: postgres]
-      --database-password <database_password>
-          [env: DATABASE_PASSWORD=]
+      --database-rui <URI>
+          [env: DATABASE_URI=] [default: mongodb://localhost:27017/messages]
       --database-name <database_name>
           [env: DATABASE_NAME=] [default: communities]
       --jwt-secret-key <jwt_secret_key>
@@ -147,4 +141,3 @@ Notes:
 - `#[sqlx::test(migrations = "./migrations")]` automatically applies migrations to an isolated test database.
 - Only a reachable Postgres server and `DATABASE_URL` env var are required; you do not need to run migrations manually for tests.
 - If you run the API or any non-`sqlx::test` integration tests that expect existing tables, apply migrations first (see "Apply Database Migrations" below).
-

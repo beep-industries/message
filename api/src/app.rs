@@ -4,6 +4,8 @@ use utoipa::OpenApi;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_scalar::{Scalar, Servable};
 
+use tracing::debug;
+
 use crate::{
     Config,
     http::{
@@ -34,6 +36,7 @@ pub struct App {
 
 impl App {
     pub async fn new(config: Config) -> Result<Self, ApiError> {
+        debug!("Creating repositories...");
         let state: AppState =
             create_repositories(&config.database.mongo_uri, &config.database.mongo_db_name)
                 .await
