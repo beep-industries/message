@@ -76,3 +76,48 @@ Options:
 ## Persistence
 
 To persist data we use MongoDB.
+
+## Testing
+
+This repository includes unit and integration tests across the core and API layers.
+
+- Run all tests for the core crate:
+
+```bash
+cargo test -p communities_core
+```
+
+- Run a single test binary (example):
+
+```bash
+cargo test -p communities_core --test mongo_repo_integration -- --nocapture
+```
+
+Integration tests that exercise the MongoDB-backed repository will automatically try to start a temporary
+MongoDB container using the `docker` CLI if no `MONGO_TEST_URI` environment variable is provided.
+This means in most cases you can run `cargo test` without additional setup as long as Docker is installed
+and the current user can run Docker commands.
+
+If you prefer to run tests against an existing MongoDB instance, set the following environment variables:
+
+- `MONGO_TEST_URI` — connection URI (e.g. `mongodb://localhost:27017`)
+- `MONGO_TEST_DB` — optional database name (defaults to `message_test_db`)
+
+Example (use local Mongo instance):
+
+```bash
+export MONGO_TEST_URI='mongodb://localhost:27017'
+export MONGO_TEST_DB='message_test_db'
+cargo test -p communities_core --test mongo_repo_integration -- --nocapture
+```
+
+If Docker is not available and `MONGO_TEST_URI` is not set, the Mongo integration test will be skipped so the
+test suite still runs.
+
+Where tests live:
+
+- `core/tests/` — unit and integration tests for the core business logic and repositories
+- `api/tests/` — (planned) HTTP integration tests for the API handlers
+
+If you run into permission errors when starting Docker containers from tests, make sure your user is in the
+`docker` group or run the tests from an environment where the Docker daemon is reachable.

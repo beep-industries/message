@@ -3,8 +3,12 @@ use futures::TryStreamExt;
 use mongodb::{
     Collection, Database,
     bson::{Bson, DateTime as BsonDateTime, doc},
+    bson::{Document},
     options::{FindOneAndUpdateOptions, FindOptions, ReturnDocument},
 };
+
+use mongodb::bson::Binary;
+use mongodb::bson::spec::BinarySubtype;
 
 use crate::domain::{
     common::{CoreError, GetPaginated, TotalPaginatedElements},
@@ -13,16 +17,19 @@ use crate::domain::{
         ports::MessageRepository,
     },
 };
+use uuid::Uuid;
 
 #[derive(Clone)]
 pub struct MongoMessageRepository {
     collection: Collection<Message>,
+    db: Database,
 }
 
 impl MongoMessageRepository {
     pub fn new(db: &Database) -> Self {
         Self {
             collection: db.collection::<Message>("messages"),
+            db: db.clone(),
         }
     }
 
@@ -41,8 +48,6 @@ impl MongoMessageRepository {
 #[async_trait::async_trait]
 impl MessageRepository for MongoMessageRepository {
     async fn insert(&self, input: InsertMessageInput) -> Result<Message, CoreError> {
-        let collection = self.collection.clone();
-
         let now = Utc::now();
 
         let message = Message {
@@ -57,10 +62,68 @@ impl MessageRepository for MongoMessageRepository {
             updated_at: None,
         };
 
-        collection
-            .insert_one(&message)
-            .await
+        // Serialize the message to a BSON document so we can ensure `created_at` is stored as a BSON datetime
+        let bson = mongodb::bson::to_bson(&message)
             .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
+
+        if let Bson::Document(mut doc) = bson {
+            // convert uuid fields to binary representation so deserialization to `Message` (which
+            // expects UUID bytes) works consistently
+            doc.insert(
+                "_id",
+                Bson::Binary(Binary {
+                    subtype: BinarySubtype::Generic,
+                    bytes: message.id.0.as_bytes().to_vec(),
+                }),
+            );
+            doc.insert(
+                "channel_id",
+                Bson::Binary(Binary {
+                    subtype: BinarySubtype::Generic,
+                    bytes: message.channel_id.0.as_bytes().to_vec(),
+                }),
+            );
+            doc.insert(
+                "author_id",
+                Bson::Binary(Binary {
+                    subtype: BinarySubtype::Generic,
+                    bytes: message.author_id.0.as_bytes().to_vec(),
+                }),
+            );
+
+            // attachments is an array of documents with `id` that should also be binary
+            if let Some(bson_arr) = doc.get_mut("attachments") {
+                if let Bson::Array(arr) = bson_arr {
+                    for item in arr.iter_mut() {
+                        if let Bson::Document(adoc) = item {
+                            if let Some(Bson::String(s)) = adoc.get("id") {
+                                // parse string uuid and insert binary
+                                if let Ok(u) = Uuid::parse_str(s) {
+                                    adoc.insert(
+                                        "id",
+                                        Bson::Binary(Binary {
+                                            subtype: BinarySubtype::Generic,
+                                            bytes: u.as_bytes().to_vec(),
+                                        }),
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // store created_at as RFC3339 string to match serde's default chrono serialization
+            doc.insert("created_at", Bson::String(now.to_rfc3339()));
+
+            let raw_coll = self.db.collection::<Document>("messages");
+            raw_coll
+                .insert_one(doc)
+                .await
+                .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
+        } else {
+            return Err(CoreError::DatabaseError { msg: "Failed to convert message to BSON document".into() });
+        }
 
         Ok(message)
     }
@@ -69,8 +132,10 @@ impl MessageRepository for MongoMessageRepository {
         let collection = self.collection.clone();
         let id = *id;
 
+        let id_bson = Bson::Binary(Binary { subtype: BinarySubtype::Generic, bytes: id.0.as_bytes().to_vec() });
+
         collection
-            .find_one(doc! { "_id": Bson::from(id.0) })
+            .find_one(doc! { "_id": id_bson })
             .await
             .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })
     }
@@ -112,7 +177,8 @@ impl MessageRepository for MongoMessageRepository {
         let collection = self.collection.clone();
 
         let mut set = doc! {
-            "updated_at": BsonDateTime::now()
+            // store updated_at as RFC3339 string to match how `created_at` is serialized
+            "updated_at": Utc::now().to_rfc3339()
         };
 
         if let Some(content) = input.content {
@@ -127,8 +193,10 @@ impl MessageRepository for MongoMessageRepository {
             .return_document(ReturnDocument::After)
             .build();
 
+        let id_bson = Bson::Binary(Binary { subtype: BinarySubtype::Generic, bytes: input.id.0.as_bytes().to_vec() });
+
         let updated = collection
-            .find_one_and_update(doc! { "_id": Bson::from(input.id.0) }, doc! { "$set": set })
+            .find_one_and_update(doc! { "_id": id_bson }, doc! { "$set": set })
             .with_options(options)
             .await
             .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
@@ -140,8 +208,10 @@ impl MessageRepository for MongoMessageRepository {
         let collection = self.collection.clone();
         let id = *id;
 
+        let id_bson = Bson::Binary(Binary { subtype: BinarySubtype::Generic, bytes: id.0.as_bytes().to_vec() });
+
         let result = collection
-            .delete_one(doc! { "_id": Bson::from(id.0) })
+            .delete_one(doc! { "_id": id_bson })
             .await
             .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
 
