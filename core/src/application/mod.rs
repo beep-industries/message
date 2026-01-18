@@ -1,11 +1,10 @@
 use mongodb::{Client as MongoClient, options::ClientOptions};
-use tracing::info;
 
 use crate::{
     domain::common::{CoreError, services::Service},
     infrastructure::{
         MessageRoutingInfo,
-        health::repositories::mongo::{self, MongoHealthRepository},
+    health::repositories::mongo::MongoHealthRepository,
         message::repositories::mongo::MongoMessageRepository,
     },
 };
@@ -19,10 +18,12 @@ pub struct CommunitiesRepositories {
     pub health_repository: MongoHealthRepository,
 }
 
+#[tracing::instrument(skip(mongo_uri, mongo_db_name))]
 pub async fn create_repositories(
     mongo_uri: &str,
     mongo_db_name: &str,
 ) -> Result<CommunitiesRepositories, CoreError> {
+    tracing::info!(db = %mongo_db_name, "creating mongodb client");
     let mongo_options = ClientOptions::parse(mongo_uri)
         .await
         .map_err(|e| CoreError::ServiceUnavailable(e.to_string()))?;
@@ -35,6 +36,8 @@ pub async fn create_repositories(
     let message_repository = MongoMessageRepository::new(&mongo_db);
 
     let health_repository = MongoHealthRepository::new(&mongo_db);
+
+    tracing::info!("repositories created");
 
     Ok(CommunitiesRepositories {
         message_repository,
@@ -50,14 +53,14 @@ impl From<CommunitiesRepositories> for CommunitiesService {
 
 impl CommunitiesRepositories {
     pub async fn shutdown(&self) {
-        info!("closing Mongo DB connection");
+        tracing::info!("closing Mongo DB connection");
         // MongoDB driver shuts down automatically
     }
 }
 
 impl CommunitiesService {
     pub async fn shutdown(&self) {
-        info!("closing Mongo DB connection");
+        tracing::info!("closing Mongo DB connection");
         // MongoDB driver shuts down automatically
     }
 }

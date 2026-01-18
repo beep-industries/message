@@ -266,7 +266,6 @@
       "CreateMessageRequest": {
         "type": "object",
         "required": [
-          "id",
           "channel_id",
           "content",
           "attachments"
@@ -283,9 +282,6 @@
           },
           "content": {
             "type": "string"
-          },
-          "id": {
-            "$ref": "#/components/schemas/MessageId"
           },
           "reply_to_message_id": {
             "oneOf": [

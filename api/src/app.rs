@@ -4,7 +4,7 @@ use utoipa::OpenApi;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_scalar::{Scalar, Servable};
 
-use tracing::debug;
+// tracing macros are used fully-qualified to keep imports explicit where needed
 
 use crate::{
     Config,
@@ -35,8 +35,9 @@ pub struct App {
 }
 
 impl App {
+    #[tracing::instrument(skip(config))]
     pub async fn new(config: Config) -> Result<Self, ApiError> {
-        debug!("Creating repositories...");
+        tracing::debug!("Creating repositories...");
         let state: AppState =
             create_repositories(&config.database.mongo_uri, &config.database.mongo_db_name)
                 .await
@@ -87,6 +88,7 @@ impl App {
         self.app_router.clone()
     }
 
+    #[tracing::instrument(skip(self))]
     pub async fn start(&self) -> Result<(), ApiError> {
         let health_addr = format!("0.0.0.0:{}", self.config.clone().message.health_port);
         let api_addr = format!("0.0.0.0:{}", self.config.clone().message.api_port);
@@ -102,7 +104,8 @@ impl App {
                 msg: format!("Failed to bind API message: {}", api_addr),
             })?;
 
-        // Run both messages concurrently
+    tracing::info!(api_addr = %api_addr, health_addr = %health_addr, "Starting HTTP listeners");
+    // Run both messages concurrently
         tokio::try_join!(
             axum::serve(health_listener, self.health_router.clone()),
             axum::serve(api_listener, self.app_router.clone())
@@ -111,6 +114,7 @@ impl App {
         Ok(())
     }
 
+    #[tracing::instrument(skip(self))]
     pub async fn shutdown(&self) {
         self.state.shutdown().await;
     }

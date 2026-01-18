@@ -9,8 +9,13 @@ use tracing::{info, trace};
 
 #[tokio::main]
 async fn main() -> Result<(), ApiError> {
-    // Initialize logger
-    tracing_subscriber::fmt::init();
+    // Initialize tracing subscriber with environment filter and a default level
+    // Initialize a basic tracing subscriber. Using a simple default level (INFO).
+    // For more advanced filtering (RUST_LOG) we can switch to EnvFilter when desired.
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .with_target(false)
+        .init();
 
     // Load environment variables from .env file
     trace!("loading env vars and config file...");

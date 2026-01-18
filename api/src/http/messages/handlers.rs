@@ -28,6 +28,7 @@ use crate::http::server::{
         (status = 500, description = "Internal message error")
     )
 )]
+#[tracing::instrument(skip(state, user_identity, request))]
 pub async fn create_message(
     State(state): State<AppState>,
     Extension(user_identity): Extension<UserIdentity>,
@@ -54,6 +55,7 @@ pub async fn create_message(
         (status = 500, description = "Internal message error")
     )
 )]
+#[tracing::instrument(skip(state))]
 pub async fn get_message(
     Path(id): Path<Uuid>,
     State(state): State<AppState>,
@@ -79,6 +81,7 @@ pub async fn get_message(
         (status = 500, description = "Internal message error")
     )
 )]
+#[tracing::instrument(skip(state, _user_identity, pagination))]
 pub async fn list_messages(
     State(state): State<AppState>,
     Extension(_user_identity): Extension<UserIdentity>,
@@ -112,6 +115,7 @@ pub async fn list_messages(
         (status = 500, description = "Internal message error")
     )
 )]
+#[tracing::instrument(skip(state, user_identity, request))]
 pub async fn update_message(
     Path(id): Path<Uuid>,
     State(state): State<AppState>,
@@ -147,6 +151,7 @@ pub async fn update_message(
         (status = 500, description = "Internal message error")
     )
 )]
+#[tracing::instrument(skip(state, user_identity))]
 pub async fn delete_message(
     Path(id): Path<Uuid>,
     State(state): State<AppState>,

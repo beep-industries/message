@@ -27,6 +27,7 @@ pub struct HealthResponse {
         (status = 500, description = "Internal message error")
     )
 )]
+#[tracing::instrument(skip(state))]
 pub async fn health_check(
     State(state): State<AppState>,
 ) -> Result<Response<HealthResponse>, ApiError> {
