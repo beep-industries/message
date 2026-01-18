@@ -1,5 +1,3 @@
-use std::future::Future;
-
 use chrono::Utc;
 use futures::TryStreamExt;
 use mongodb::{
@@ -40,135 +38,117 @@ impl MongoMessageRepository {
     }
 }
 
+#[async_trait::async_trait]
 impl MessageRepository for MongoMessageRepository {
-    fn insert(
-        &self,
-        input: InsertMessageInput,
-    ) -> impl Future<Output = Result<Message, CoreError>> + Send {
+    async fn insert(&self, input: InsertMessageInput) -> Result<Message, CoreError> {
         let collection = self.collection.clone();
 
-        async move {
-            let now = Utc::now();
+        let now = Utc::now();
 
-            let message = Message {
-                id: input.id,
-                channel_id: input.channel_id,
-                author_id: input.author_id,
-                content: input.content,
-                reply_to_message_id: input.reply_to_message_id,
-                attachments: input.attachments,
-                is_pinned: false,
-                created_at: now,
-                updated_at: None,
-            };
+        let message = Message {
+            id: input.id,
+            channel_id: input.channel_id,
+            author_id: input.author_id,
+            content: input.content,
+            reply_to_message_id: input.reply_to_message_id,
+            attachments: input.attachments,
+            is_pinned: false,
+            created_at: now,
+            updated_at: None,
+        };
 
-            collection
-                .insert_one(&message)
-                .await
-                .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
+        collection
+            .insert_one(&message)
+            .await
+            .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
 
-            Ok(message)
-        }
+        Ok(message)
     }
 
-    fn find_by_id(
-        &self,
-        id: &MessageId,
-    ) -> impl Future<Output = Result<Option<Message>, CoreError>> + Send {
+    async fn find_by_id(&self, id: &MessageId) -> Result<Option<Message>, CoreError> {
         let collection = self.collection.clone();
         let id = *id;
 
-        async move {
-            collection
-                .find_one(doc! { "_id": Bson::from(id.0) })
-                .await
-                .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })
-        }
+        collection
+            .find_one(doc! { "_id": Bson::from(id.0) })
+            .await
+            .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })
     }
 
-    fn list(
+    async fn list(
         &self,
         pagination: &GetPaginated,
-    ) -> impl Future<Output = Result<(Vec<Message>, TotalPaginatedElements), CoreError>> + Send
+    ) -> Result<(Vec<Message>, TotalPaginatedElements), CoreError>
     {
         let collection = self.collection.clone();
         let options = Self::pagination_options(pagination);
 
-        async move {
-            let filter = doc! {};
+        let filter = doc! {};
 
-            let total = collection
-                .count_documents(filter.clone())
-                .await
-                .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
+        let total = collection
+            .count_documents(filter.clone())
+            .await
+            .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
 
-            let mut cursor = collection
-                .find(filter)
-                .with_options(options)
-                .await
-                .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
+        let mut cursor = collection
+            .find(filter)
+            .with_options(options)
+            .await
+            .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
 
-            let mut messages = Vec::new();
-            while let Some(message) = cursor
-                .try_next()
-                .await
-                .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?
-            {
-                messages.push(message);
-            }
-
-            Ok((messages, total))
+        let mut messages = Vec::new();
+        while let Some(message) = cursor
+            .try_next()
+            .await
+            .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?
+        {
+            messages.push(message);
         }
+
+        Ok((messages, total))
     }
 
-    fn update(
-        &self,
-        input: UpdateMessageInput,
-    ) -> impl Future<Output = Result<Message, CoreError>> + Send {
+    async fn update(&self, input: UpdateMessageInput) -> Result<Message, CoreError> {
         let collection = self.collection.clone();
 
-        async move {
-            let mut set = doc! {
-                "updated_at": BsonDateTime::now()
-            };
+        let mut set = doc! {
+            "updated_at": BsonDateTime::now()
+        };
 
-            if let Some(content) = input.content {
-                set.insert("content", content);
-            }
-
-            if let Some(is_pinned) = input.is_pinned {
-                set.insert("is_pinned", is_pinned);
-            }
-
-            let options = FindOneAndUpdateOptions::builder()
-                .return_document(ReturnDocument::After)
-                .build();
-
-            let updated = collection
-                .find_one_and_update(doc! { "_id": Bson::from(input.id.0) }, doc! { "$set": set })
-                .with_options(options)
-                .await
-                .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
-
-            updated.ok_or(CoreError::MessageNotFound { id: input.id })
+        if let Some(content) = input.content {
+            set.insert("content", content);
         }
+
+        if let Some(is_pinned) = input.is_pinned {
+            set.insert("is_pinned", is_pinned);
+        }
+
+        let options = FindOneAndUpdateOptions::builder()
+            .return_document(ReturnDocument::After)
+            .build();
+
+        let updated = collection
+            .find_one_and_update(doc! { "_id": Bson::from(input.id.0) }, doc! { "$set": set })
+            .with_options(options)
+            .await
+            .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
+
+        updated.ok_or(CoreError::MessageNotFound { id: input.id })
     }
 
-    fn delete(&self, id: &MessageId) -> impl Future<Output = Result<(), CoreError>> + Send {
+    async fn delete(&self, id: &MessageId) -> Result<(), CoreError> {
         let collection = self.collection.clone();
         let id = *id;
 
-        async move {
-            let result = collection
-                .delete_one(doc! { "_id": Bson::from(id.0) })
-                .await
-                .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
+        let result = collection
+            .delete_one(doc! { "_id": Bson::from(id.0) })
+            .await
+            .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
 
-            if result.deleted_count == 0 {
-                return Err(CoreError::MessageNotFound { id });
-            }
-
-            Ok(())
+        if result.deleted_count == 0 {
+            return Err(CoreError::MessageNotFound { id });
         }
+
+        Ok(())
     }
 }

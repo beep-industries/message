@@ -121,7 +121,6 @@ pub struct InsertMessageInput {
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct CreateMessageRequest {
-    pub id: MessageId,
     pub channel_id: ChannelId,
     pub content: String,
     pub reply_to_message_id: Option<MessageId>,
@@ -131,7 +130,7 @@ pub struct CreateMessageRequest {
 impl CreateMessageRequest {
     pub fn into_input(self, author_id: AuthorId) -> InsertMessageInput {
         InsertMessageInput {
-            id: self.id,
+            id: MessageId::from(Uuid::new_v4()),
             channel_id: self.channel_id,
             author_id,
             content: self.content,

@@ -5,24 +5,16 @@ use crate::domain::{
     message::entities::{InsertMessageInput, Message, MessageId, UpdateMessageInput},
 };
 
+#[async_trait::async_trait]
 pub trait MessageRepository: Send + Sync {
-    fn insert(
-        &self,
-        input: InsertMessageInput,
-    ) -> impl Future<Output = Result<Message, CoreError>> + Send;
-    fn find_by_id(
-        &self,
-        id: &MessageId,
-    ) -> impl Future<Output = Result<Option<Message>, CoreError>> + Send;
-    fn list(
+    async fn insert(&self, input: InsertMessageInput) -> Result<Message, CoreError>;
+    async fn find_by_id(&self, id: &MessageId) -> Result<Option<Message>, CoreError>;
+    async fn list(
         &self,
         pagination: &GetPaginated,
-    ) -> impl Future<Output = Result<(Vec<Message>, TotalPaginatedElements), CoreError>> + Send;
-    fn update(
-        &self,
-        input: UpdateMessageInput,
-    ) -> impl Future<Output = Result<Message, CoreError>> + Send;
-    fn delete(&self, id: &MessageId) -> impl Future<Output = Result<(), CoreError>> + Send;
+    ) -> Result<(Vec<Message>, TotalPaginatedElements), CoreError>;
+    async fn update(&self, input: UpdateMessageInput) -> Result<Message, CoreError>;
+    async fn delete(&self, id: &MessageId) -> Result<(), CoreError>;
 }
 
 /// A service for managing message operations in the application.
@@ -39,6 +31,7 @@ pub trait MessageRepository: Send + Sync {
 ///
 /// All implementations must be thread-safe (`Send + Sync`) to support concurrent access
 /// in multi-threaded environments.
+#[async_trait::async_trait]
 pub trait MessageService: Send + Sync {
     /// Creates a new message with the provided input.
     ///
@@ -55,10 +48,7 @@ pub trait MessageService: Send + Sync {
     /// Returns a `Future` that resolves to:
     /// - `Ok(Message)` - The newly created message
     /// - `Err(CoreError)` - If validation fails or repository operation fails
-    fn create_message(
-        &self,
-        input: InsertMessageInput,
-    ) -> impl Future<Output = Result<Message, CoreError>> + Send;
+    async fn create_message(&self, input: InsertMessageInput) -> Result<Message, CoreError>;
 
     /// Retrieves a message by its unique identifier.
     ///
@@ -77,10 +67,7 @@ pub trait MessageService: Send + Sync {
     /// - `Ok(Message)` - The message was found and the user has permission to access it
     /// - `Err(CoreError::MessageNotFound)` - No message exists with the given ID
     /// - `Err(CoreError)` - Other errors such as database connectivity issues or authorization failures
-    fn get_message(
-        &self,
-        message_id: &MessageId,
-    ) -> impl Future<Output = Result<Message, CoreError>> + Send;
+    async fn get_message(&self, message_id: &MessageId) -> Result<Message, CoreError>;
 
     /// Lists messages with pagination support.
     ///
@@ -96,10 +83,10 @@ pub trait MessageService: Send + Sync {
     /// Returns a `Future` that resolves to:
     /// - `Ok((Vec<Message>, TotalPaginatedElements))` - List of messages and total count
     /// - `Err(CoreError)` - If repository operation fails
-    fn list_messages(
+    async fn list_messages(
         &self,
         pagination: &GetPaginated,
-    ) -> impl Future<Output = Result<(Vec<Message>, TotalPaginatedElements), CoreError>> + Send;
+    ) -> Result<(Vec<Message>, TotalPaginatedElements), CoreError>;
 
     /// Updates an existing message with the provided input.
     ///
@@ -117,10 +104,7 @@ pub trait MessageService: Send + Sync {
     /// - `Ok(Message)` - The updated message
     /// - `Err(CoreError::MessageNotFound)` - No message exists with the given ID
     /// - `Err(CoreError)` - If validation fails or repository operation fails
-    fn update_message(
-        &self,
-        input: UpdateMessageInput,
-    ) -> impl Future<Output = Result<Message, CoreError>> + Send;
+    async fn update_message(&self, input: UpdateMessageInput) -> Result<Message, CoreError>;
 
     /// Deletes a message by its unique identifier.
     ///
@@ -137,10 +121,7 @@ pub trait MessageService: Send + Sync {
     /// - `Ok(())` - The message was successfully deleted
     /// - `Err(CoreError::MessageNotFound)` - No message exists with the given ID
     /// - `Err(CoreError)` - If repository operation fails
-    fn delete_message(
-        &self,
-        message_id: &MessageId,
-    ) -> impl Future<Output = Result<(), CoreError>> + Send;
+    async fn delete_message(&self, message_id: &MessageId) -> Result<(), CoreError>;
 }
 
 #[derive(Clone)]
@@ -156,6 +137,7 @@ impl MockMessageRepository {
     }
 }
 
+#[async_trait::async_trait]
 impl MessageRepository for MockMessageRepository {
     async fn find_by_id(&self, id: &MessageId) -> Result<Option<Message>, CoreError> {
         let messages = self.messages.lock().unwrap();
@@ -185,7 +167,7 @@ impl MessageRepository for MockMessageRepository {
         let mut messages = self.messages.lock().unwrap();
 
         let new_message = Message {
-            id: MessageId::from(uuid::Uuid::new_v4()),
+            id: input.id,
             channel_id: input.channel_id,
             author_id: input.author_id,
             content: input.content,

@@ -7,6 +7,7 @@ use crate::domain::{
     },
 };
 
+#[async_trait::async_trait]
 impl<S, H> MessageService for Service<S, H>
 where
     S: MessageRepository,
