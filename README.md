@@ -84,7 +84,7 @@ This repository includes unit and integration tests across the core and API laye
 - Run all tests for the core crate:
 
 ```bash
-cargo test -p communities_core
+cargo test
 ```
 
 - Run a single test binary (example):
@@ -117,7 +117,7 @@ test suite still runs.
 Where tests live:
 
 - `core/tests/` — unit and integration tests for the core business logic and repositories
-- `api/tests/` — (planned) HTTP integration tests for the API handlers
+- `api/tests/` — HTTP integration tests for the API handlers
 
 If you run into permission errors when starting Docker containers from tests, make sure your user is in the
 `docker` group or run the tests from an environment where the Docker daemon is reachable.

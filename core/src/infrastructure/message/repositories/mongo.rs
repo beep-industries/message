@@ -2,7 +2,7 @@ use chrono::Utc;
 use futures::TryStreamExt;
 use mongodb::{
     Collection, Database,
-    bson::{Bson, DateTime as BsonDateTime, doc},
+    bson::{Bson, doc},
     bson::{Document},
     options::{FindOneAndUpdateOptions, FindOptions, ReturnDocument},
 };
