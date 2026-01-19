@@ -19,6 +19,9 @@ pub struct Config {
     #[command(flatten)]
     pub message: MessageConfig,
 
+    #[command(flatten)]
+    pub cors: CorsConfig,
+
     #[arg(
         long = "routing-config",
         env = "ROUTING_CONFIG_PATH",
@@ -106,6 +109,17 @@ pub struct MessageConfig {
         default_value = "8081"
     )]
     pub health_port: u16,
+}
+
+#[derive(Clone, Parser, Debug, Default)]
+pub struct CorsConfig {
+    #[arg(
+        long = "cors-allowed-origins",
+        env = "CORS_ALLOWED_ORIGINS",
+        default_value = "http://localhost:5173,http://localhost:3000",
+        value_delimiter = ','
+    )]
+    pub allowed_origins: Vec<String>,
 }
 
 #[derive(Clone, Debug, ValueEnum, Default)]

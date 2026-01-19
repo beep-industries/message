@@ -1,6 +1,8 @@
+use axum::http::{HeaderValue, Method, header};
 use axum::middleware::from_extractor_with_state;
 use beep_auth::KeycloakAuthRepository;
 use communities_core::create_repositories;
+use tower_http::cors::CorsLayer;
 use utoipa::OpenApi;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_scalar::{Scalar, Servable};
@@ -52,6 +54,26 @@ impl App {
             ),
             None,
         );
+
+        let allowed_origins: Vec<HeaderValue> = config
+            .cors
+            .allowed_origins
+            .iter()
+            .filter_map(|origin| origin.parse::<HeaderValue>().ok())
+            .collect();
+
+        let cors = CorsLayer::new()
+            .allow_origin(allowed_origins)
+            .allow_methods([
+                Method::GET,
+                Method::POST,
+                Method::PUT,
+                Method::DELETE,
+                Method::OPTIONS,
+            ])
+            .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION, header::ACCEPT])
+            .allow_credentials(true);
+
         let (app_router, mut api) = OpenApiRouter::<AppState>::new()
             .merge(message_routes())
             // Add application routes here
@@ -59,6 +81,7 @@ impl App {
                 AuthMiddleware,
                 KeycloakAuthRepository,
             >(keycloak_repository))
+            .layer(cors)
             .split_for_parts();
 
         // Override API documentation info
@@ -110,8 +133,8 @@ impl App {
                 msg: format!("Failed to bind API message: {}", api_addr),
             })?;
 
-    tracing::info!(api_addr = %api_addr, health_addr = %health_addr, "Starting HTTP listeners");
-    // Run both listeners concurrently
+        tracing::info!(api_addr = %api_addr, health_addr = %health_addr, "Starting HTTP listeners");
+        // Run both listeners concurrently
         tokio::try_join!(
             axum::serve(health_listener, self.health_router.clone()),
             axum::serve(api_listener, self.app_router.clone())
