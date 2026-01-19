@@ -105,7 +105,7 @@ impl App {
             })?;
 
     tracing::info!(api_addr = %api_addr, health_addr = %health_addr, "Starting HTTP listeners");
-    // Run both messages concurrently
+    // Run both listeners concurrently
         tokio::try_join!(
             axum::serve(health_listener, self.health_router.clone()),
             axum::serve(api_listener, self.app_router.clone())
