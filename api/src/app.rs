@@ -13,10 +13,7 @@ use crate::{
     Config,
     http::{
         health::routes::health_routes,
-        server::{
-            ApiError, AppState, middleware::auth::AuthMiddleware,
-            middleware::auth::entities::AuthValidator,
-        },
+        server::{ApiError, AppState, middleware::auth::AuthMiddleware},
     },
     message_routes,
 };
