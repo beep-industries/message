@@ -1,4 +1,5 @@
 use axum::middleware::from_extractor_with_state;
+use beep_auth::KeycloakAuthRepository;
 use communities_core::create_repositories;
 use utoipa::OpenApi;
 use utoipa_axum::router::OpenApiRouter;
@@ -29,7 +30,6 @@ struct ApiDoc;
 pub struct App {
     config: Config,
     pub state: AppState,
-    pub auth_validator: AuthValidator,
     app_router: axum::Router,
     health_router: axum::Router,
 }
@@ -45,13 +45,20 @@ impl App {
                     msg: format!("Failed to create repositories: {}", e),
                 })?
                 .into();
-        let auth_validator = AuthValidator::new(config.clone().jwt.secret_key);
+        let keycloak_repository = KeycloakAuthRepository::new(
+            format!(
+                "{}/realms/{}",
+                config.keycloak.internal_url, config.keycloak.realm
+            ),
+            None,
+        );
         let (app_router, mut api) = OpenApiRouter::<AppState>::new()
             .merge(message_routes())
             // Add application routes here
-            .route_layer(from_extractor_with_state::<AuthMiddleware, AuthValidator>(
-                auth_validator.clone(),
-            ))
+            .route_layer(from_extractor_with_state::<
+                AuthMiddleware,
+                KeycloakAuthRepository,
+            >(keycloak_repository))
             .split_for_parts();
 
         // Override API documentation info
@@ -78,7 +85,6 @@ impl App {
         Ok(Self {
             config,
             state,
-            auth_validator,
             app_router,
             health_router,
         })

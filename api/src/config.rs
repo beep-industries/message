@@ -14,6 +14,9 @@ pub struct Config {
     pub jwt: JwtConfig,
 
     #[command(flatten)]
+    pub keycloak: KeycloakConfig,
+
+    #[command(flatten)]
     pub message: MessageConfig,
 
     #[arg(
@@ -41,6 +44,23 @@ impl Config {
         self.routing = serde_yaml::from_str(&yaml_content)?;
         Ok(())
     }
+}
+
+#[derive(Clone, Parser, Debug, Default)]
+pub struct KeycloakConfig {
+    #[arg(
+        long = "keycloak-internal-url",
+        env = "KEYCLOAK_INTERNAL_URL",
+        default_value = "localhost"
+    )]
+    pub internal_url: String,
+
+    #[arg(
+        long = "keycloak-realm",
+        env = "KEYCLOAK_REALM",
+        default_value = "user"
+    )]
+    pub realm: String,
 }
 #[derive(Clone, Parser, Debug, Default)]
 pub struct DatabaseConfig {
