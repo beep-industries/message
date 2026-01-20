@@ -115,7 +115,7 @@ async fn mongo_repository_crud_flow() {
     assert!(found.is_some(), "repo find_by_id returned None; inspect raw logs above");
 
     // List
-    let (list, total) = repo.list(&GetPaginated::default()).await.expect("list should succeed");
+    let (list, total) = repo.list(&channel, &GetPaginated::default()).await.expect("list should succeed");
     assert!(total >= 1);
     assert!(list.iter().any(|m| m.id == id));
 

@@ -142,13 +142,16 @@ impl MessageRepository for MongoMessageRepository {
 
     async fn list(
         &self,
+        channel_id: &crate::domain::message::entities::ChannelId,
         pagination: &GetPaginated,
     ) -> Result<(Vec<Message>, TotalPaginatedElements), CoreError>
     {
         let collection = self.collection.clone();
         let options = Self::pagination_options(pagination);
 
-        let filter = doc! {};
+        // build filter by channel_id
+        let channel_bson = Bson::Binary(Binary { subtype: BinarySubtype::Generic, bytes: channel_id.0.as_bytes().to_vec() });
+        let filter = doc! { "channel_id": channel_bson };
 
         let total = collection
             .count_documents(filter.clone())

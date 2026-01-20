@@ -42,11 +42,12 @@ where
 
     async fn list_messages(
         &self,
+        channel_id: &crate::domain::message::entities::ChannelId,
         pagination: &GetPaginated,
     ) -> Result<(Vec<Message>, TotalPaginatedElements), CoreError> {
         // @TODO Authorization: Filter messages by visibility based on user permissions
 
-        let (messages, total) = self.message_repository.list(pagination).await?;
+        let (messages, total) = self.message_repository.list(channel_id, pagination).await?;
 
         Ok((messages, total))
     }

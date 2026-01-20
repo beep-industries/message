@@ -32,7 +32,7 @@ async fn mock_repo_crud_flow() {
     assert_eq!(found.id, id);
 
     // List
-    let (list, total) = repo.list(&GetPaginated::default()).await.expect("list should succeed");
+    let (list, total) = repo.list(&channel, &GetPaginated::default()).await.expect("list should succeed");
     assert!(total >= 1);
     assert!(list.iter().any(|m| m.id == id));
 
