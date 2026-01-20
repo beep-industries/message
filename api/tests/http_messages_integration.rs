@@ -76,7 +76,7 @@ async fn http_handlers_crud_flow() {
     let router = Router::new()
         .route("/messages", post(handlers::create_message))
         .route("/messages/{id}", get(handlers::get_message))
-        .route("/messages", get(handlers::list_messages))
+        .route("/channels/{channel_id}/messages", get(handlers::list_messages))
         .route("/messages/{id}", put(handlers::update_message))
         .route("/messages/{id}", delete(handlers::delete_message))
         .with_state(state.clone())
@@ -103,7 +103,9 @@ async fn http_handlers_crud_flow() {
 
     // Verify insertion via the repository and obtain the id
     use communities_core::domain::common::GetPaginated;
-    let (messages, _total) = repos.message_repository.list(&GetPaginated::default()).await.expect("list messages");
+    use communities_core::domain::message::entities::ChannelId;
+    let channel_id = ChannelId::from(channel);
+    let (messages, _total) = repos.message_repository.list(&channel_id, &GetPaginated::default()).await.expect("list messages");
     assert!(!messages.is_empty());
     let id = messages[0].id.0;
     let request = Request::builder()

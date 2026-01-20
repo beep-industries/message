@@ -5,7 +5,7 @@ use axum::{
 use communities_core::domain::{
     common::GetPaginated,
     message::{
-        entities::{AuthorId, CreateMessageRequest, Message, MessageId, UpdateMessageRequest},
+        entities::{AuthorId, ChannelId, CreateMessageRequest, Message, MessageId, UpdateMessageRequest},
         ports::MessageService,
     },
 };
@@ -70,9 +70,10 @@ pub async fn get_message(
 
 #[utoipa::path(
     get,
-    path = "/messages",
+    path = "/channels/{channel_id}/messages",
     tag = "messages",
     params(
+        ("channel_id" = String, Path, description = "Channel ID"),
         GetPaginated
     ),
     responses(
@@ -85,9 +86,12 @@ pub async fn get_message(
 pub async fn list_messages(
     State(state): State<AppState>,
     Extension(_user_identity): Extension<UserIdentity>,
+    Path(channel_id): Path<Uuid>,
     Query(pagination): Query<GetPaginated>,
 ) -> Result<Response<PaginatedResponse<Message>>, ApiError> {
-    let (messages, total) = state.service.list_messages(&pagination).await?;
+    let channel = ChannelId::from(channel_id);
+
+    let (messages, total) = state.service.list_messages(&channel, &pagination).await?;
 
     let response = PaginatedResponse {
         data: messages,

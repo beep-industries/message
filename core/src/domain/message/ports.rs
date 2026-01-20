@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::domain::{
     common::{CoreError, GetPaginated, TotalPaginatedElements},
-    message::entities::{InsertMessageInput, Message, MessageId, UpdateMessageInput},
+    message::entities::{InsertMessageInput, ChannelId, Message, MessageId, UpdateMessageInput},
 };
 
 #[async_trait::async_trait]
@@ -11,6 +11,7 @@ pub trait MessageRepository: Send + Sync {
     async fn find_by_id(&self, id: &MessageId) -> Result<Option<Message>, CoreError>;
     async fn list(
         &self,
+        channel_id: &ChannelId,
         pagination: &GetPaginated,
     ) -> Result<(Vec<Message>, TotalPaginatedElements), CoreError>;
     async fn update(&self, input: UpdateMessageInput) -> Result<Message, CoreError>;
@@ -85,6 +86,7 @@ pub trait MessageService: Send + Sync {
     /// - `Err(CoreError)` - If repository operation fails
     async fn list_messages(
         &self,
+        channel_id: &ChannelId,
         pagination: &GetPaginated,
     ) -> Result<(Vec<Message>, TotalPaginatedElements), CoreError>;
 
@@ -149,16 +151,19 @@ impl MessageRepository for MockMessageRepository {
 
     async fn list(
         &self,
+        channel_id: &ChannelId,
         pagination: &GetPaginated,
     ) -> Result<(Vec<Message>, TotalPaginatedElements), CoreError> {
         let messages = self.messages.lock().unwrap();
-        let total = messages.len() as u64;
+
+        // Filter messages by channel
+        let filtered: Vec<Message> = messages.iter().filter(|m| &m.channel_id == channel_id).cloned().collect();
+        let total = filtered.len() as u64;
 
         let offset = ((pagination.page - 1) * pagination.limit) as usize;
         let limit = pagination.limit as usize;
 
-        let paginated_messages: Vec<Message> =
-            messages.iter().skip(offset).take(limit).cloned().collect();
+        let paginated_messages: Vec<Message> = filtered.into_iter().skip(offset).take(limit).collect();
 
         Ok((paginated_messages, total))
     }
