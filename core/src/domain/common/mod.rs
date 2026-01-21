@@ -32,6 +32,10 @@ pub enum CoreError {
     /// Serialization error occurred when converting event to JSON
     #[error("Serialization error: {msg}")]
     SerializationError { msg: String },
+
+    /// RabbitMQ error occurred during message publishing
+    #[error("RabbitMQ error: {msg}")]
+    RabbitMqError { msg: String },
 }
 
 #[derive(Debug, Deserialize, ToSchema, IntoParams)]

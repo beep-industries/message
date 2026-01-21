@@ -22,6 +22,9 @@ pub struct Config {
     #[command(flatten)]
     pub cors: CorsConfig,
 
+    #[command(flatten)]
+    pub rabbitmq: RabbitMqConfig,
+
     #[arg(
         long = "routing-config",
         env = "ROUTING_CONFIG_PATH",
@@ -120,6 +123,16 @@ pub struct CorsConfig {
         value_delimiter = ','
     )]
     pub allowed_origins: Vec<String>,
+}
+
+#[derive(Clone, Parser, Debug, Default)]
+pub struct RabbitMqConfig {
+    #[arg(
+        long = "rabbitmq-url",
+        env = "RABBITMQ_URL",
+        default_value = "amqp://guest:guest@localhost:5672"
+    )]
+    pub url: String,
 }
 
 #[derive(Clone, Debug, ValueEnum, Default)]

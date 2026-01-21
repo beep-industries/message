@@ -1,4 +1,5 @@
 use communities_core::infrastructure::message::repositories::mongo::MongoMessageRepository;
+use communities_core::infrastructure::MessageRoutingInfo;
 use communities_core::domain::message::ports::MessageRepository;
 use communities_core::domain::message::entities::{InsertMessageInput, Attachment, AttachmentId, ChannelId, AuthorId, MessageId, UpdateMessageInput};
 use communities_core::domain::common::GetPaginated;
@@ -74,7 +75,8 @@ async fn mongo_repository_crud_flow() {
     // ensure a clean database
     let _ = db.drop().await;
 
-    let repo = MongoMessageRepository::new(&db);
+    let routing_info = MessageRoutingInfo::new("notifications", "message.created");
+    let repo = MongoMessageRepository::new(&db, routing_info);
 
     let id = MessageId::from(Uuid::new_v4());
     let channel = ChannelId::from(Uuid::new_v4());

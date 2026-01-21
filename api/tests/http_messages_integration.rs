@@ -2,6 +2,8 @@ use axum::{body::Body, http::{Request, StatusCode}, routing::{get, post, put, de
 use tower::util::ServiceExt;
 use tower_http::add_extension::AddExtensionLayer;
 use communities_core::create_repositories;
+use communities_core::application::MessageRoutingInfos;
+use communities_core::infrastructure::MessageRoutingInfo;
 use communities_core::domain::message::ports::MessageRepository;
 use uuid::Uuid;
 use serde_json::json;
@@ -43,8 +45,12 @@ async fn ensure_mongo_uri() -> Option<(String, Option<String>)> {
     let uri = format!("mongodb://127.0.0.1:{}", host_port);
     // wait for readiness
     // wait for mongo to accept connections by retrying create_repositories
+    let routing = MessageRoutingInfos {
+        create_message: MessageRoutingInfo::new("notifications", "message.created"),
+        delete_message: MessageRoutingInfo::new("beep.messages", "message.deleted"),
+    };
     for _ in 0..40 {
-        if create_repositories(&uri, &db_name).await.is_ok() {
+        if create_repositories(&uri, &db_name, &routing).await.is_ok() {
             return Some((uri, Some(container_id)));
         }
         tokio::time::sleep(std::time::Duration::from_millis(250)).await;
@@ -66,7 +72,11 @@ async fn http_handlers_crud_flow() {
     };
 
     // create repositories
-    let repos = create_repositories(&uri, "message_test_db").await.expect("create repos");
+    let routing = MessageRoutingInfos {
+        create_message: MessageRoutingInfo::new("notifications", "message.created"),
+        delete_message: MessageRoutingInfo::new("beep.messages", "message.deleted"),
+    };
+    let repos = create_repositories(&uri, "message_test_db", &routing).await.expect("create repos");
     let state: AppState = repos.clone().into();
 
     // prepare router with extension providing UserIdentity

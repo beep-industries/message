@@ -1,7 +1,8 @@
 use axum::http::{HeaderValue, Method, header};
 use axum::middleware::from_extractor_with_state;
 use beep_auth::KeycloakAuthRepository;
-use communities_core::create_repositories;
+use communities_core::{create_repositories, infrastructure::{OutboxRelayService, RabbitMqPublisher}};
+use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 use utoipa::OpenApi;
 use utoipa_axum::router::OpenApiRouter;
@@ -37,13 +38,45 @@ impl App {
     #[tracing::instrument(skip(config))]
     pub async fn new(config: Config) -> Result<Self, ApiError> {
         tracing::debug!("Creating repositories...");
-        let state: AppState =
-            create_repositories(&config.database.mongo_uri, &config.database.mongo_db_name)
+        let repositories =
+            create_repositories(
+                &config.database.mongo_uri,
+                &config.database.mongo_db_name,
+                &config.routing,
+            )
                 .await
                 .map_err(|e| ApiError::StartupError {
                     msg: format!("Failed to create repositories: {}", e),
-                })?
-                .into();
+                })?;
+
+        // Initialize RabbitMQ publisher
+        tracing::info!("Initializing RabbitMQ publisher");
+        let rabbitmq_publisher = Arc::new(RabbitMqPublisher::new(config.rabbitmq.url.clone()));
+        rabbitmq_publisher
+            .connect()
+            .await
+            .map_err(|e| ApiError::StartupError {
+                msg: format!("Failed to connect to RabbitMQ: {}", e),
+            })?;
+
+        // Declare the notifications exchange
+        rabbitmq_publisher
+            .declare_exchange("notifications")
+            .await
+            .map_err(|e| ApiError::StartupError {
+                msg: format!("Failed to declare notifications exchange: {}", e),
+            })?;
+
+        // Create and start the outbox relay service
+        tracing::info!("Starting outbox relay service");
+        let db = repositories.message_repository.db.clone();
+        let relay_service = OutboxRelayService::new(db, rabbitmq_publisher.clone());
+        tokio::spawn(async move {
+            relay_service.start().await;
+        });
+
+        let state: AppState = repositories.into();
+
         let keycloak_repository = KeycloakAuthRepository::new(
             format!(
                 "{}/realms/{}",
