@@ -1,0 +1,13 @@
+target/
+.git/
+.gitignore
+.env
+.env.*
+*.md
+docs/
+compose/
+migrations/
+**/*.rs.bk
+Dockerfile
+.dockerignore
+openapi.json
