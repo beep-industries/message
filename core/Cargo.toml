@@ -26,6 +26,9 @@ futures = "0.3.31"
 tracing = "0.1.44"
 bson = { version = "2", features = ["uuid-1"] }
 async-trait = "0.1"
+lapin = "3.7.2"
+prost = "0.14.3"
+tokio = { version = "1", features = ["sync", "time"] }
 
 [dev-dependencies]
 mockall = "0.13.1"

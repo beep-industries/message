@@ -1,6 +1,9 @@
+use axum::http::{HeaderValue, Method, header};
 use axum::middleware::from_extractor_with_state;
 use beep_auth::KeycloakAuthRepository;
-use communities_core::create_repositories;
+use communities_core::{create_repositories, infrastructure::{OutboxRelayService, RabbitMqPublisher}};
+use std::sync::Arc;
+use tower_http::cors::CorsLayer;
 use utoipa::OpenApi;
 use utoipa_axum::router::OpenApiRouter;
 use utoipa_scalar::{Scalar, Servable};
@@ -11,10 +14,7 @@ use crate::{
     Config,
     http::{
         health::routes::health_routes,
-        server::{
-            ApiError, AppState, middleware::auth::AuthMiddleware,
-            middleware::auth::entities::AuthValidator,
-        },
+        server::{ApiError, AppState, middleware::auth::AuthMiddleware},
     },
     message_routes,
 };
@@ -38,13 +38,45 @@ impl App {
     #[tracing::instrument(skip(config))]
     pub async fn new(config: Config) -> Result<Self, ApiError> {
         tracing::debug!("Creating repositories...");
-        let state: AppState =
-            create_repositories(&config.database.mongo_uri, &config.database.mongo_db_name)
+        let repositories =
+            create_repositories(
+                &config.database.mongo_uri,
+                &config.database.mongo_db_name,
+                &config.routing,
+            )
                 .await
                 .map_err(|e| ApiError::StartupError {
                     msg: format!("Failed to create repositories: {}", e),
-                })?
-                .into();
+                })?;
+
+        // Initialize RabbitMQ publisher
+        tracing::info!("Initializing RabbitMQ publisher");
+        let rabbitmq_publisher = Arc::new(RabbitMqPublisher::new(config.rabbitmq.url.clone()));
+        rabbitmq_publisher
+            .connect()
+            .await
+            .map_err(|e| ApiError::StartupError {
+                msg: format!("Failed to connect to RabbitMQ: {}", e),
+            })?;
+
+        // Declare the notifications exchange
+        rabbitmq_publisher
+            .declare_exchange("notifications")
+            .await
+            .map_err(|e| ApiError::StartupError {
+                msg: format!("Failed to declare notifications exchange: {}", e),
+            })?;
+
+        // Create and start the outbox relay service
+        tracing::info!("Starting outbox relay service");
+        let db = repositories.message_repository.db.clone();
+        let relay_service = OutboxRelayService::new(db, rabbitmq_publisher.clone());
+        tokio::spawn(async move {
+            relay_service.start().await;
+        });
+
+        let state: AppState = repositories.into();
+
         let keycloak_repository = KeycloakAuthRepository::new(
             format!(
                 "{}/realms/{}",
@@ -52,6 +84,26 @@ impl App {
             ),
             None,
         );
+
+        let allowed_origins: Vec<HeaderValue> = config
+            .cors
+            .allowed_origins
+            .iter()
+            .filter_map(|origin| origin.parse::<HeaderValue>().ok())
+            .collect();
+
+        let cors = CorsLayer::new()
+            .allow_origin(allowed_origins)
+            .allow_methods([
+                Method::GET,
+                Method::POST,
+                Method::PUT,
+                Method::DELETE,
+                Method::OPTIONS,
+            ])
+            .allow_headers([header::CONTENT_TYPE, header::AUTHORIZATION, header::ACCEPT])
+            .allow_credentials(true);
+
         let (app_router, mut api) = OpenApiRouter::<AppState>::new()
             .merge(message_routes())
             // Add application routes here
@@ -59,6 +111,7 @@ impl App {
                 AuthMiddleware,
                 KeycloakAuthRepository,
             >(keycloak_repository))
+            .layer(cors)
             .split_for_parts();
 
         // Override API documentation info
@@ -110,8 +163,8 @@ impl App {
                 msg: format!("Failed to bind API message: {}", api_addr),
             })?;
 
-    tracing::info!(api_addr = %api_addr, health_addr = %health_addr, "Starting HTTP listeners");
-    // Run both listeners concurrently
+        tracing::info!(api_addr = %api_addr, health_addr = %health_addr, "Starting HTTP listeners");
+        // Run both listeners concurrently
         tokio::try_join!(
             axum::serve(health_listener, self.health_router.clone()),
             axum::serve(api_listener, self.app_router.clone())

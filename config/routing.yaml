@@ -2,9 +2,9 @@
 # This file defines the exchange names and routing keys for outbox events
 
 create_message:
-  exchange: "beep.messages"        # Exchange name
-  routing_key: "message.created"   # Routing key
+  exchange: "notifications" # Exchange name for notifications topic
+  routing_key: "message.created" # Routing key
 
 delete_message:
-  exchange: "beep.messages"        # Exchange name
-  routing_key: "message.deleted"   # Routing key
+  exchange: "beep.messages" # Exchange name
+  routing_key: "message.deleted" # Routing key

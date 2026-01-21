@@ -19,7 +19,7 @@ It will handle:
 Launch postgres:
 
 ```bash
-docker compose up -d mongo 
+docker compose up -d mongodb 
 ```
 
 Create the .env file to let the Mongo client know how to connect to the database:

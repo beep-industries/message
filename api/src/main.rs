@@ -6,15 +6,18 @@ use api::config::Config;
 use clap::Parser;
 
 use tracing::{info, trace};
+use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> Result<(), ApiError> {
-    // Initialize tracing subscriber with environment filter and a default level
-    // Initialize a basic tracing subscriber. Using a simple default level (INFO).
-    // For more advanced filtering (RUST_LOG) we can switch to EnvFilter when desired.
+    // Initialize tracing subscriber with environment filter
+    // Use RUST_LOG environment variable to control log level
+    // Examples: RUST_LOG=debug, RUST_LOG=api=debug, RUST_LOG=api::http::server::middleware::auth=trace
     tracing_subscriber::fmt()
-        .with_max_level(tracing::Level::INFO)
-        .with_target(false)
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
+        .with_target(true)
         .init();
 
     // Load environment variables from .env file

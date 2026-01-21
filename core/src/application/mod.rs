@@ -18,10 +18,11 @@ pub struct CommunitiesRepositories {
     pub health_repository: MongoHealthRepository,
 }
 
-#[tracing::instrument(skip(mongo_uri, mongo_db_name))]
+#[tracing::instrument(skip(mongo_uri, mongo_db_name, routing_infos))]
 pub async fn create_repositories(
     mongo_uri: &str,
     mongo_db_name: &str,
+    routing_infos: &MessageRoutingInfos,
 ) -> Result<CommunitiesRepositories, CoreError> {
     tracing::info!(db = %mongo_db_name, "creating mongodb client");
     let mongo_options = ClientOptions::parse(mongo_uri)
@@ -33,7 +34,7 @@ pub async fn create_repositories(
 
     let mongo_db = mongo_client.database(mongo_db_name);
 
-    let message_repository = MongoMessageRepository::new(&mongo_db);
+    let message_repository = MongoMessageRepository::new(&mongo_db, routing_infos.create_message.clone());
 
     let health_repository = MongoHealthRepository::new(&mongo_db);
 

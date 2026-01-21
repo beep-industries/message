@@ -2,19 +2,27 @@ use chrono::Utc;
 use futures::TryStreamExt;
 use mongodb::{
     Collection, Database,
+    bson::Document,
     bson::{Bson, doc},
-    bson::{Document},
     options::{FindOneAndUpdateOptions, FindOptions, ReturnDocument},
 };
 
 use mongodb::bson::Binary;
 use mongodb::bson::spec::BinarySubtype;
 
-use crate::domain::{
-    common::{CoreError, GetPaginated, TotalPaginatedElements},
-    message::{
-        entities::{InsertMessageInput, Message, MessageId, UpdateMessageInput},
-        ports::MessageRepository,
+use crate::{
+    domain::{
+        common::{CoreError, GetPaginated, TotalPaginatedElements},
+        message::{
+            entities::{InsertMessageInput, Message, MessageId, UpdateMessageInput},
+            events::CreateMessageEvent,
+            ports::MessageRepository,
+        },
+    },
+    infrastructure::{
+        MessageRoutingInfo,
+        outbox::OutboxEventRecord,
+        write_outbox_event,
     },
 };
 use uuid::Uuid;
@@ -22,20 +30,23 @@ use uuid::Uuid;
 #[derive(Clone)]
 pub struct MongoMessageRepository {
     collection: Collection<Message>,
-    db: Database,
+    pub db: Database,
+    routing_info: MessageRoutingInfo,
 }
 
 impl MongoMessageRepository {
-    pub fn new(db: &Database) -> Self {
+    pub fn new(db: &Database, routing_info: MessageRoutingInfo) -> Self {
         Self {
             collection: db.collection::<Message>("messages"),
             db: db.clone(),
+            routing_info,
         }
     }
 
     fn pagination_options(pagination: &GetPaginated) -> FindOptions {
         let limit = pagination.limit.min(50) as i64;
-        let skip = ((pagination.page - 1) * pagination.limit) as u64;
+        let page = pagination.page.max(1); // Ensure page is at least 1
+        let skip = ((page - 1) * pagination.limit) as u64;
 
         FindOptions::builder()
             .sort(doc! { "created_at": -1 })
@@ -121,8 +132,28 @@ impl MessageRepository for MongoMessageRepository {
                 .insert_one(doc)
                 .await
                 .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
+
+            // Write outbox event for message creation
+            let event = CreateMessageEvent::from_domain(
+                message.id.0,
+                message.channel_id.0,
+                message.author_id.0,
+                message.content.clone(),
+                message.reply_to_message_id.map(|id| id.0),
+                message.attachments.clone(),
+            );
+
+            let outbox_record = OutboxEventRecord::new(self.routing_info.clone(), event);
+            write_outbox_event(&self.db, &outbox_record).await?;
+
+            tracing::info!(
+                message_id = %message.id,
+                "Message created and outbox event written"
+            );
         } else {
-            return Err(CoreError::DatabaseError { msg: "Failed to convert message to BSON document".into() });
+            return Err(CoreError::DatabaseError {
+                msg: "Failed to convert message to BSON document".into(),
+            });
         }
 
         Ok(message)
@@ -132,7 +163,10 @@ impl MessageRepository for MongoMessageRepository {
         let collection = self.collection.clone();
         let id = *id;
 
-        let id_bson = Bson::Binary(Binary { subtype: BinarySubtype::Generic, bytes: id.0.as_bytes().to_vec() });
+        let id_bson = Bson::Binary(Binary {
+            subtype: BinarySubtype::Generic,
+            bytes: id.0.as_bytes().to_vec(),
+        });
 
         collection
             .find_one(doc! { "_id": id_bson })
@@ -144,13 +178,15 @@ impl MessageRepository for MongoMessageRepository {
         &self,
         channel_id: &crate::domain::message::entities::ChannelId,
         pagination: &GetPaginated,
-    ) -> Result<(Vec<Message>, TotalPaginatedElements), CoreError>
-    {
+    ) -> Result<(Vec<Message>, TotalPaginatedElements), CoreError> {
         let collection = self.collection.clone();
         let options = Self::pagination_options(pagination);
 
         // build filter by channel_id
-        let channel_bson = Bson::Binary(Binary { subtype: BinarySubtype::Generic, bytes: channel_id.0.as_bytes().to_vec() });
+        let channel_bson = Bson::Binary(Binary {
+            subtype: BinarySubtype::Generic,
+            bytes: channel_id.0.as_bytes().to_vec(),
+        });
         let filter = doc! { "channel_id": channel_bson };
 
         let total = collection
@@ -196,7 +232,10 @@ impl MessageRepository for MongoMessageRepository {
             .return_document(ReturnDocument::After)
             .build();
 
-        let id_bson = Bson::Binary(Binary { subtype: BinarySubtype::Generic, bytes: input.id.0.as_bytes().to_vec() });
+        let id_bson = Bson::Binary(Binary {
+            subtype: BinarySubtype::Generic,
+            bytes: input.id.0.as_bytes().to_vec(),
+        });
 
         let updated = collection
             .find_one_and_update(doc! { "_id": id_bson }, doc! { "$set": set })
@@ -211,7 +250,10 @@ impl MessageRepository for MongoMessageRepository {
         let collection = self.collection.clone();
         let id = *id;
 
-        let id_bson = Bson::Binary(Binary { subtype: BinarySubtype::Generic, bytes: id.0.as_bytes().to_vec() });
+        let id_bson = Bson::Binary(Binary {
+            subtype: BinarySubtype::Generic,
+            bytes: id.0.as_bytes().to_vec(),
+        });
 
         let result = collection
             .delete_one(doc! { "_id": id_bson })
