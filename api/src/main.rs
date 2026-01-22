@@ -21,7 +21,7 @@ async fn main() -> Result<(), ApiError> {
 
     // Load .env file as fallback (only sets variables that aren't already in the environment)
     // System environment variables always take priority
-    if let Ok(path) = dotenv::dotenv() {
+    if let Ok(path) = dotenvy::dotenv() {
         info!("Loaded .env file from: {:?}", path);
     } else {
         info!("No .env file found, using system environment variables");
