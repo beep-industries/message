@@ -1,16 +1,21 @@
-use axum::{body::Body, http::{Request, StatusCode}, routing::{get, post, put, delete}, Router};
-use tower::util::ServiceExt;
-use tower_http::add_extension::AddExtensionLayer;
-use communities_core::create_repositories;
-use communities_core::application::MessageRoutingInfos;
-use communities_core::infrastructure::MessageRoutingInfo;
-use communities_core::domain::message::ports::MessageRepository;
-use uuid::Uuid;
-use serde_json::json;
 use api as crate_api;
-use crate_api::http::messages::handlers as handlers;
+use axum::{
+    Router,
+    body::Body,
+    http::{Request, StatusCode},
+    routing::{delete, get, post, put},
+};
+use communities_core::application::MessageRoutingInfos;
+use communities_core::create_repositories;
+use communities_core::domain::message::ports::MessageRepository;
+use communities_core::infrastructure::MessageRoutingInfo;
+use crate_api::http::messages::handlers;
 use crate_api::http::server::app_state::AppState;
 use crate_api::http::server::middleware::auth::entities::UserIdentity;
+use serde_json::json;
+use tower::util::ServiceExt;
+use tower_http::add_extension::AddExtensionLayer;
+use uuid::Uuid;
 
 // Helper: start docker mongo if MONGO_TEST_URI not set
 async fn ensure_mongo_uri() -> Option<(String, Option<String>)> {
@@ -36,7 +41,10 @@ async fn ensure_mongo_uri() -> Option<(String, Option<String>)> {
         return None;
     }
     let container_id = String::from_utf8_lossy(&run.stdout).trim().to_string();
-    let port_out = Command::new("docker").args(["port", &container_id, "27017"]).output().ok()?;
+    let port_out = Command::new("docker")
+        .args(["port", &container_id, "27017"])
+        .output()
+        .ok()?;
     if !port_out.status.success() {
         return None;
     }
@@ -46,7 +54,7 @@ async fn ensure_mongo_uri() -> Option<(String, Option<String>)> {
     // wait for readiness
     // wait for mongo to accept connections by retrying create_repositories
     let routing = MessageRoutingInfos {
-        create_message: MessageRoutingInfo::new("notifications", "message.created"),
+        create_message: MessageRoutingInfo::new("notifications", "message.create"),
         delete_message: MessageRoutingInfo::new("beep.messages", "message.deleted"),
     };
     for _ in 0..40 {
@@ -55,7 +63,9 @@ async fn ensure_mongo_uri() -> Option<(String, Option<String>)> {
         }
         tokio::time::sleep(std::time::Duration::from_millis(250)).await;
     }
-    let _ = Command::new("docker").args(["rm", "-f", &container_id]).output();
+    let _ = Command::new("docker")
+        .args(["rm", "-f", &container_id])
+        .output();
     None
 }
 
@@ -73,10 +83,12 @@ async fn http_handlers_crud_flow() {
 
     // create repositories
     let routing = MessageRoutingInfos {
-        create_message: MessageRoutingInfo::new("notifications", "message.created"),
+        create_message: MessageRoutingInfo::new("notifications", "message.create"),
         delete_message: MessageRoutingInfo::new("beep.messages", "message.deleted"),
     };
-    let repos = create_repositories(&uri, "message_test_db", &routing).await.expect("create repos");
+    let repos = create_repositories(&uri, "message_test_db", &routing)
+        .await
+        .expect("create repos");
     let state: AppState = repos.clone().into();
 
     // prepare router with extension providing UserIdentity
@@ -86,7 +98,10 @@ async fn http_handlers_crud_flow() {
     let router = Router::new()
         .route("/messages", post(handlers::create_message))
         .route("/messages/{id}", get(handlers::get_message))
-        .route("/channels/{channel_id}/messages", get(handlers::list_messages))
+        .route(
+            "/channels/{channel_id}/messages",
+            get(handlers::list_messages),
+        )
         .route("/messages/{id}", put(handlers::update_message))
         .route("/messages/{id}", delete(handlers::delete_message))
         .with_state(state.clone())
@@ -108,14 +123,22 @@ async fn http_handlers_crud_flow() {
         .body(Body::from(req_body.to_string()))
         .unwrap();
 
-    let response = router.clone().oneshot(request).await.expect("router oneshot");
+    let response = router
+        .clone()
+        .oneshot(request)
+        .await
+        .expect("router oneshot");
     assert_eq!(response.status(), StatusCode::CREATED);
 
     // Verify insertion via the repository and obtain the id
     use communities_core::domain::common::GetPaginated;
     use communities_core::domain::message::entities::ChannelId;
     let channel_id = ChannelId::from(channel);
-    let (messages, _total) = repos.message_repository.list(&channel_id, &GetPaginated::default()).await.expect("list messages");
+    let (messages, _total) = repos
+        .message_repository
+        .list(&channel_id, &GetPaginated::default())
+        .await
+        .expect("list messages");
     assert!(!messages.is_empty());
     let id = messages[0].id.0;
     let request = Request::builder()
@@ -128,6 +151,8 @@ async fn http_handlers_crud_flow() {
 
     // cleanup docker container if we started one
     if let Some(cid) = container_id_opt {
-        let _ = std::process::Command::new("docker").args(["rm", "-f", &cid]).output();
+        let _ = std::process::Command::new("docker")
+            .args(["rm", "-f", &cid])
+            .output();
     }
 }

@@ -122,11 +122,23 @@ impl OutboxRelayService {
             msg: format!("Missing payload in outbox document {}", id),
         })?;
 
-        // Serialize payload to JSON bytes
-        let payload_bytes =
-            serde_json::to_vec(&payload).map_err(|e| CoreError::SerializationError {
-                msg: format!("Failed to serialize payload: {}", e),
-            })?;
+        // Extract protobuf bytes from BSON binary
+        let payload_bytes = match payload {
+            Bson::Binary(bin) => bin.bytes.clone(),
+            _ => {
+                // Prevent endless retries for legacy/non-binary payloads
+                let update = doc! {
+                    "$set": {
+                        "status": "FAILED",
+                        "failed_at": mongodb::bson::DateTime::now(),
+                    }
+                };
+                let _ = collection.update_one(doc! { "_id": id_bson }, update).await;
+                return Err(CoreError::SerializationError {
+                    msg: format!("Expected binary payload in outbox document {}", id),
+                });
+            }
+        };
 
         // Ensure exchange exists
         if let Err(e) = self.publisher.declare_exchange(exchange_name).await {

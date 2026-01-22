@@ -15,15 +15,11 @@ use crate::{
         common::{CoreError, GetPaginated, TotalPaginatedElements},
         message::{
             entities::{InsertMessageInput, Message, MessageId, UpdateMessageInput},
-            events::CreateMessageEvent,
+            events::{create_message_event_from_domain, create_message_event_to_bytes},
             ports::MessageRepository,
         },
     },
-    infrastructure::{
-        MessageRoutingInfo,
-        outbox::OutboxEventRecord,
-        write_outbox_event,
-    },
+    infrastructure::{MessageRoutingInfo, outbox::OutboxEventRecord, write_outbox_event},
 };
 use uuid::Uuid;
 
@@ -134,7 +130,8 @@ impl MessageRepository for MongoMessageRepository {
                 .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
 
             // Write outbox event for message creation
-            let event = CreateMessageEvent::from_domain(
+
+            let event = create_message_event_from_domain(
                 message.id.0,
                 message.channel_id.0,
                 message.author_id.0,
@@ -142,13 +139,14 @@ impl MessageRepository for MongoMessageRepository {
                 message.reply_to_message_id.map(|id| id.0),
                 message.attachments.clone(),
             );
-
-            let outbox_record = OutboxEventRecord::new(self.routing_info.clone(), event);
+            let event_bytes = create_message_event_to_bytes(&event)
+                .map_err(|e| CoreError::SerializationError { msg: e.to_string() })?;
+            let outbox_record = OutboxEventRecord::new(self.routing_info.clone(), event_bytes);
             write_outbox_event(&self.db, &outbox_record).await?;
 
             tracing::info!(
                 message_id = %message.id,
-                "Message created and outbox event written"
+                "Message create and outbox event written"
             );
         } else {
             return Err(CoreError::DatabaseError {
