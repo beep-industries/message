@@ -45,7 +45,7 @@ RABBITMQ_URL=amqp://guest:guest@localhost:5672
 # config/routing.yaml
 create_message:
   exchange: "notifications" # Topic exchange for notifications
-  routing_key: "message.created" # Routing key
+   routing_key: "message.create" # Routing key
 ```
 
 ## Flow
@@ -70,7 +70,7 @@ create_message:
    ↓
    Query outbox for READY messages
    ↓
-   Publish to RabbitMQ (exchange: "notifications", key: "message.created")
+   Publish to RabbitMQ (exchange: "notifications", key: "message.create")
    ↓
    Update status to SENT (or FAILED on error)
    ```
@@ -110,7 +110,7 @@ Messages are published as JSON with content-type `application/json`:
 ```
 Queue: notifications.messages.created
 Exchange: notifications (Topic)
-Binding Key: message.created
+Binding Key: message.create
 ```
 
 ## Benefits of Outbox Pattern

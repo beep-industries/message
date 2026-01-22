@@ -29,7 +29,12 @@ async-trait = "0.1"
 lapin = "3.7.2"
 prost = "0.14.3"
 tokio = { version = "1", features = ["sync", "time"] }
+events-protobuf = { git = "https://github.com/beep-industries/events-protobuf.git", rev = "b457de4" }
 
 [dev-dependencies]
 mockall = "0.13.1"
 tokio = { version = "1", features = ["full"] }
+
+
+[build-dependencies]
+prost-build = "0.14.3"

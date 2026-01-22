@@ -11,7 +11,7 @@ BELOW ARE EXAMPLES TO MODIFY:
 ProduceMessageCreated:
 
 ```txt
-key: messages.created
+key: message.create
 exchange name and type: `messages.events` of type Topic
 message: CreateMessage message in messages.proto in the events-protobuf repository, Protobuf package `messages.events`.
 ```
@@ -23,9 +23,9 @@ message: CreateMessage message in messages.proto in the events-protobuf reposito
 ConsumeMessageCreated:
 
 ```txt
-queue: notifications.messages.created
+queue: notifications.message.create
 exchange name and type: `messages.events` of type Topic
-binding: messages.created
+binding: message.create
 ```
 
 Notice the naming convention for consumer queues is <consumer-service>.<domain-or-event-produced>.<action>

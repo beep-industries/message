@@ -3,7 +3,7 @@
 
 create_message:
   exchange: "notifications" # Exchange name for notifications topic
-  routing_key: "message.created" # Routing key
+  routing_key: "message.create" # Routing key
 
 delete_message:
   exchange: "beep.messages" # Exchange name

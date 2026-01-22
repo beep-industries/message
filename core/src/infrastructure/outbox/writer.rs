@@ -12,33 +12,31 @@ use crate::{
 
 const OUTBOX_COLLECTION: &str = "outbox_messages";
 
+
+use mongodb::bson::Binary;
 #[derive(Debug, Serialize)]
 struct OutboxDocument {
     #[serde(rename = "_id")]
     id: Uuid,
     exchange_name: String,
     routing_key: String,
-    payload: mongodb::bson::Bson,
+    payload: Binary, // store as BSON binary
     status: String,
     created_at: BsonDateTime,
 }
 
-pub async fn write_outbox_event<TPayload, TRouter>(
+pub async fn write_outbox_event<TRouter>(
     db: &Database,
-    event: &OutboxEventRecord<TPayload, TRouter>,
+    event: &OutboxEventRecord<TRouter>,
 ) -> Result<Uuid, CoreError>
 where
-    TPayload: Serialize + Send + Sync,
     TRouter: MessageRouter + Send + Sync,
 {
-    let payload = to_bson(&event.payload)
-        .map_err(|e| CoreError::SerializationError { msg: e.to_string() })?;
-
     let doc = OutboxDocument {
         id: event.id,
         exchange_name: event.router.exchange_name().to_string(),
         routing_key: event.router.routing_key().to_string(),
-        payload,
+        payload: Binary { subtype: mongodb::bson::spec::BinarySubtype::Generic, bytes: event.payload.clone() },
         status: "READY".to_string(),
         created_at: BsonDateTime::now(),
     };

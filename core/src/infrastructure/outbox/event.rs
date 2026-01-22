@@ -3,22 +3,20 @@ use uuid::Uuid;
 
 /// Outbox event record (domain-level abstraction)
 #[derive(Debug, Clone)]
-pub struct OutboxEventRecord<TPayload, TRouter>
+pub struct OutboxEventRecord<TRouter>
 where
-    TPayload: Serialize + Send + Sync,
     TRouter: MessageRouter + Send + Sync,
 {
     pub id: Uuid,
     pub router: TRouter,
-    pub payload: TPayload,
+    pub payload: Vec<u8>, // protobuf bytes
 }
 
-impl<TPayload, TRouter> OutboxEventRecord<TPayload, TRouter>
+impl<TRouter> OutboxEventRecord<TRouter>
 where
-    TPayload: Serialize + Send + Sync,
     TRouter: MessageRouter + Send + Sync,
 {
-    pub fn new(router: TRouter, payload: TPayload) -> Self {
+    pub fn new(router: TRouter, payload: Vec<u8>) -> Self {
         Self {
             id: Uuid::new_v4(),
             router,
