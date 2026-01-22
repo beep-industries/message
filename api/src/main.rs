@@ -1,6 +1,5 @@
 use api::app::App;
 use api::http::server::ApiError;
-use dotenv::dotenv;
 
 use api::config::Config;
 use clap::Parser;
@@ -20,9 +19,13 @@ async fn main() -> Result<(), ApiError> {
         .with_target(true)
         .init();
 
-    // Load environment variables from .env file
-    trace!("loading env vars and config file...");
-    dotenv().ok();
+    // Load .env file as fallback (only sets variables that aren't already in the environment)
+    // System environment variables always take priority
+    if let Ok(path) = dotenvy::dotenv() {
+        info!("Loaded .env file from: {:?}", path);
+    } else {
+        info!("No .env file found, using system environment variables");
+    }
 
     let mut config: Config = Config::parse();
     config.load_routing().map_err(|e| ApiError::StartupError {
