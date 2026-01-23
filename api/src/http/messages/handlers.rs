@@ -15,6 +15,7 @@ use crate::http::server::{
     ApiError, AppState, Response, middleware::auth::entities::UserIdentity,
     response::PaginatedResponse,
 };
+use crate::http::server::authorization::{Permission, Resource};
 
 #[utoipa::path(
     post,
@@ -34,6 +35,17 @@ pub async fn create_message(
     Extension(user_identity): Extension<UserIdentity>,
     Json(request): Json<CreateMessageRequest>,
 ) -> Result<Response<Message>, ApiError> {
+    // Authorization: check user can send messages to this channel
+    let channel = request.channel_id;
+    let allowed = state
+        .authz
+        .check(user_identity.user_id, Permission::SendMessages, Resource::Channel(channel.0))
+        .await
+        .map_err(|_| ApiError::InternalServerError)?;
+    if !allowed {
+        return Err(ApiError::Forbidden);
+    }
+
     let owner_id = AuthorId::from(user_identity.user_id);
     let input = request.into_input(owner_id);
     let message = state.service.create_message(input).await?;
@@ -59,11 +71,20 @@ pub async fn create_message(
 pub async fn get_message(
     Path(id): Path<Uuid>,
     State(state): State<AppState>,
+    Extension(user_identity): Extension<UserIdentity>,
 ) -> Result<Response<Message>, ApiError> {
     let message_id = MessageId::from(id);
     let message = state.service.get_message(&message_id).await?;
 
-    //FIXME: Check that user is allowed to see the message. (is in the channel's server etc)
+    // Authorization: check user can view the channel where this message belongs
+    let allowed = state
+        .authz
+        .check(user_identity.user_id, Permission::ViewChannels, Resource::Channel(message.channel_id.0))
+        .await
+        .map_err(|_| ApiError::InternalServerError)?;
+    if !allowed {
+        return Err(ApiError::Forbidden);
+    }
 
     Ok(Response::ok(message))
 }
@@ -82,14 +103,24 @@ pub async fn get_message(
         (status = 500, description = "Internal message error")
     )
 )]
-#[tracing::instrument(skip(state, _user_identity, pagination))]
+#[tracing::instrument(skip(state, user_identity, pagination))]
 pub async fn list_messages(
     State(state): State<AppState>,
-    Extension(_user_identity): Extension<UserIdentity>,
+    Extension(user_identity): Extension<UserIdentity>,
     Path(channel_id): Path<Uuid>,
     Query(pagination): Query<GetPaginated>,
 ) -> Result<Response<PaginatedResponse<Message>>, ApiError> {
     let channel = ChannelId::from(channel_id);
+
+    // Authorization: ensure user can view the channel before listing
+    let allowed = state
+        .authz
+        .check(user_identity.user_id, Permission::ViewChannels, Resource::Channel(channel.0))
+        .await
+        .map_err(|_| ApiError::InternalServerError)?;
+    if !allowed {
+        return Err(ApiError::Forbidden);
+    }
 
     let (messages, total) = state.service.list_messages(&channel, &pagination).await?;
 
@@ -133,7 +164,6 @@ pub async fn update_message(
     if existing_message.author_id.0 != user_identity.user_id {
         return Err(ApiError::Forbidden);
     }
-    //FIXME: Check that user is authorized to update the message, not just is the author
 
     let input = request.into_input(message_id);
     let message = state.service.update_message(input).await?;
@@ -168,7 +198,6 @@ pub async fn delete_message(
     if existing_message.author_id.0 != user_identity.user_id {
         return Err(ApiError::Forbidden);
     }
-    //FIXME: Check that user is authorized to update the message, not just is the author
 
     state.service.delete_message(&message_id).await?;
     Ok(Response::deleted(()))
