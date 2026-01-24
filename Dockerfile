@@ -1,7 +1,7 @@
 # Build stage
 FROM rust:1.92-alpine AS builder
 
-RUN apk add --no-cache musl-dev pkgconfig openssl-dev openssl-libs-static
+RUN apk add --no-cache musl-dev pkgconfig openssl-dev openssl-libs-static protoc protobuf-dev
 
 # Static linking for scratch image
 ENV OPENSSL_STATIC=1
