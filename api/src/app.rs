@@ -14,12 +14,7 @@ use crate::{
     Config,
     http::{
         health::routes::health_routes,
-        server::{
-            ApiError, AppState, middleware::auth::AuthMiddleware,
-            middleware::auth::entities::AuthValidator,
-            authorization::SpiceDbAuthz,
-            authorization::SpiceDbConfig as LocalSpiceConfig,
-        },
+        server::{ApiError, AppState, middleware::auth::AuthMiddleware},
     },
     message_routes,
 };
@@ -43,21 +38,20 @@ impl App {
     #[tracing::instrument(skip(config))]
     pub async fn new(config: Config) -> Result<Self, ApiError> {
         tracing::debug!("Creating repositories...");
+        let repositories =
+            create_repositories(
+                &config.database.mongo_uri,
+                &config.database.mongo_db_name,
+                &config.routing,
+            )
+                .await
+                .map_err(|e| ApiError::StartupError {
+                    msg: format!("Failed to create repositories: {}", e),
+                })?;
 
-        let repositories = create_repositories(
-            &config.database.mongo_uri,
-            &config.database.mongo_db_name,
-            &config.routing,
-        )
-        .await
-        .map_err(|e| ApiError::StartupError {
-            msg: format!("Failed to create repositories: {}", e),
-        })?;
-
-        // ---------- RabbitMQ / Outbox ----------
+        // Initialize RabbitMQ publisher
         tracing::info!("Initializing RabbitMQ publisher");
         let rabbitmq_publisher = Arc::new(RabbitMqPublisher::new(config.rabbitmq.url.clone()));
-
         rabbitmq_publisher
             .connect()
             .await
@@ -65,6 +59,7 @@ impl App {
                 msg: format!("Failed to connect to RabbitMQ: {}", e),
             })?;
 
+        // Declare the notifications exchange
         rabbitmq_publisher
             .declare_exchange("notifications")
             .await
@@ -72,6 +67,7 @@ impl App {
                 msg: format!("Failed to declare notifications exchange: {}", e),
             })?;
 
+        // Create and start the outbox relay service
         tracing::info!("Starting outbox relay service");
         let db = repositories.message_repository.db.clone();
         let relay_service = OutboxRelayService::new(db, rabbitmq_publisher.clone());
@@ -79,33 +75,8 @@ impl App {
             relay_service.start().await;
         });
 
-        // ---------- Application service ----------
-        let service: communities_core::application::CommunitiesService =
-            repositories.clone().into();
+        let state: AppState = repositories.into();
 
-        // ---------- Authorization (SpiceDB) ----------
-        let authz = {
-            let cfg = LocalSpiceConfig {
-                endpoint: config.spicedb.endpoint.clone(),
-                token: if config.spicedb.token.is_empty() {
-                    None
-                } else {
-                    Some(config.spicedb.token.clone())
-                },
-            };
-
-            let client = SpiceDbAuthz::new(cfg)
-                .await
-                .map_err(|e| ApiError::StartupError {
-                    msg: format!("Failed to init SpiceDB authz: {:?}", e),
-                })?;
-
-            Arc::new(client) as Arc<dyn crate::http::server::authorization::Authorization>
-        };
-
-        let state = AppState::new(service, authz);
-
-        // ---------- Keycloak ----------
         let keycloak_repository = KeycloakAuthRepository::new(
             format!(
                 "{}/realms/{}",
@@ -114,7 +85,6 @@ impl App {
             None,
         );
 
-        // ---------- CORS ----------
         let allowed_origins: Vec<HeaderValue> = config
             .cors
             .allowed_origins
@@ -136,6 +106,7 @@ impl App {
 
         let (app_router, mut api) = OpenApiRouter::<AppState>::new()
             .merge(message_routes())
+            // Add application routes here
             .route_layer(from_extractor_with_state::<
                 AuthMiddleware,
                 KeycloakAuthRepository,
@@ -143,6 +114,7 @@ impl App {
             .layer(cors)
             .split_for_parts();
 
+        // Override API documentation info
         let custom_info = ApiDoc::openapi();
         api.info = custom_info.info;
 
@@ -153,7 +125,7 @@ impl App {
         let app_router = app_router
             .with_state(state.clone())
             .merge(Scalar::with_url("/scalar", api));
-
+        // Write OpenAPI spec to file in development environment
         if matches!(config.environment, crate::config::Environment::Development) {
             std::fs::write("openapi.json", &openapi_json).map_err(|e| ApiError::StartupError {
                 msg: format!("Failed to write OpenAPI spec to file: {}", e),
@@ -163,7 +135,6 @@ impl App {
         let health_router = axum::Router::new()
             .merge(health_routes())
             .with_state(state.clone());
-
         Ok(Self {
             config,
             state,
