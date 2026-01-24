@@ -25,9 +25,6 @@ pub struct Config {
     #[command(flatten)]
     pub rabbitmq: RabbitMqConfig,
 
-    #[command(flatten)]
-    pub spicedb: SpiceDbConfig,
-
     #[arg(
         long = "routing-config",
         env = "ROUTING_CONFIG_PATH",
@@ -45,25 +42,6 @@ pub struct Config {
     )]
     pub environment: Environment,
 }
-
-#[derive(Clone, Parser, Debug, Default)]
-pub struct SpiceDbConfig {
-    #[arg(
-        long = "spicedb-endpoint",
-        env = "SPICEDB_ENDPOINT",
-        default_value = "localhost:50051"
-    )]
-    pub endpoint: String,
-
-    #[arg(
-        long = "spicedb-token",
-        env = "SPICEDB_TOKEN",
-        default_value = "",
-        hide_default_value = true
-    )]
-    pub token: String,
-}
-
 
 impl Config {
     /// Load routing configuration from YAML file
