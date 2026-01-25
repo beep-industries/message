@@ -1,5 +1,5 @@
+use events_protobuf::messages_events::CreateMessageEvent;
 use events_protobuf::messages_events::create_message_event::Attachment;
-use events_protobuf::messages_events::{CreateMessageEvent, NotifyEntry};
 use uuid::Uuid;
 
 /// Convert domain entities to protobuf CreateMessageEvent
