@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "message.fullname" . }}-config
+  labels:
+    {{- include "message.labels" . | nindent 4 }}
+data:
+  routing.yaml: |
+    create_message:
+      exchange: "{{ .Values.routing.createMessage.exchange }}"
+      routing_key: "{{ .Values.routing.createMessage.routingKey }}"
+    delete_message:
+      exchange: "{{ .Values.routing.deleteMessage.exchange }}"
+      routing_key: "{{ .Values.routing.deleteMessage.routingKey }}"

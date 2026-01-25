@@ -1,0 +1,14 @@
+apiVersion: v2
+name: message
+description: Message microservice for the Beep platform
+type: application
+version: 0.1.0
+appVersion: "0.0.1"
+keywords:
+  - message
+  - microservice
+  - rust
+  - mongodb
+maintainers:
+  - name: beep
+    email: contact@beep.ovh
