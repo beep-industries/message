@@ -1,0 +1,141 @@
+replicaCount: 1
+
+image:
+  repository: ghcr.io/beep-industries/message
+  tag: "0.0.1"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop:
+      - ALL
+
+# API service configuration
+service:
+  type: ClusterIP
+  apiPort: 3001
+  healthPort: 9090
+
+# Gateway API HTTPRoute configuration
+httpRoute:
+  enabled: false
+  annotations: {}
+  # Parent gateway references
+  parentRefs:
+    - name: main-gateway
+      namespace: gateway-system
+      # sectionName: https  # Optional: specific listener name
+  # Hostnames to match
+  hostnames:
+    - message.example.com
+  # Routing rules
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Application configuration
+config:
+  # Log level
+  rustLog: "info"
+
+  # CORS origins (comma-separated)
+  corsOrigins: "http://localhost:3001,https://beep.ovh"
+
+  # Environment (development, production, test)
+  environment: "production"
+
+# MongoDB configuration
+database:
+  name: "messages"
+  # Option 1: Provide an existing secret name (recommended for production)
+  # The secret should contain the full MongoDB connection URI
+  existingSecret: ""
+  secretKey: "uri"
+  # Option 2: Provide the URI directly (required if existingSecret is not set)
+  # uri: "mongodb://localhost:27017/messages"
+
+# JWT configuration
+jwt:
+  # Option 1: Provide an existing secret name (recommended for production)
+  existingSecret: ""
+  secretKey: "secret_key"
+  # Option 2: Provide the secret directly (required if existingSecret is not set)
+  # secretKey value in the secret or direct value
+
+# Keycloak configuration
+keycloak:
+  internalUrl: "http://keycloak:8080"
+  realm: "myrealm"
+
+# RabbitMQ configuration
+rabbitmq:
+  # Option 1: Provide an existing secret name (recommended for production)
+  existingSecret: ""
+  # Option 2: Provide the URL directly (required if existingSecret is not set)
+  url: "amqp://rabbitmq:5672"
+
+# Message routing configuration (mounted as configmap)
+# Format: nested with exchange and routing_key
+routing:
+  createMessage:
+    exchange: "notifications"
+    routingKey: "message.create"
+  deleteMessage:
+    exchange: "beep.messages"
+    routingKey: "message.deleted"
+
+# Health check configuration
+healthCheck:
+  enabled: true
+  livenessProbe:
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    initialDelaySeconds: 5
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 3
