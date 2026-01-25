@@ -1,7 +1,10 @@
 use axum::http::{HeaderValue, Method, header};
 use axum::middleware::from_extractor_with_state;
 use beep_auth::KeycloakAuthRepository;
-use communities_core::{create_repositories, infrastructure::{OutboxRelayService, RabbitMqPublisher}};
+use communities_core::{
+    create_repositories,
+    infrastructure::{OutboxRelayService, RabbitMqPublisher},
+};
 use std::sync::Arc;
 use tower_http::cors::CorsLayer;
 use utoipa::OpenApi;
@@ -15,10 +18,8 @@ use crate::{
     http::{
         health::routes::health_routes,
         server::{
-            ApiError, AppState, middleware::auth::AuthMiddleware,
-            middleware::auth::entities::AuthValidator,
-            authorization::SpiceDbAuthz,
-            authorization::SpiceDbConfig as LocalSpiceConfig,
+            ApiError, AppState, authorization::SpiceDbAuthz,
+            authorization::SpiceDbConfig as LocalSpiceConfig, middleware::auth::AuthMiddleware,
         },
     },
     message_routes,

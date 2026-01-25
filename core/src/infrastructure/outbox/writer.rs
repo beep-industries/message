@@ -1,6 +1,6 @@
 use mongodb::{
     Collection, Database,
-    bson::{DateTime as BsonDateTime, doc, to_bson},
+    bson::{DateTime as BsonDateTime, doc},
 };
 use serde::Serialize;
 use uuid::Uuid;
@@ -11,7 +11,6 @@ use crate::{
 };
 
 const OUTBOX_COLLECTION: &str = "outbox_messages";
-
 
 use mongodb::bson::Binary;
 #[derive(Debug, Serialize)]
@@ -36,7 +35,10 @@ where
         id: event.id,
         exchange_name: event.router.exchange_name().to_string(),
         routing_key: event.router.routing_key().to_string(),
-        payload: Binary { subtype: mongodb::bson::spec::BinarySubtype::Generic, bytes: event.payload.clone() },
+        payload: Binary {
+            subtype: mongodb::bson::spec::BinarySubtype::Generic,
+            bytes: event.payload.clone(),
+        },
         status: "READY".to_string(),
         created_at: BsonDateTime::now(),
     };
