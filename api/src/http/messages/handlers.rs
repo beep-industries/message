@@ -5,17 +5,19 @@ use axum::{
 use communities_core::domain::{
     common::GetPaginated,
     message::{
-        entities::{AuthorId, ChannelId, CreateMessageRequest, Message, MessageId, UpdateMessageRequest},
+        entities::{
+            AuthorId, ChannelId, CreateMessageRequest, Message, MessageId, UpdateMessageRequest,
+        },
         ports::MessageService,
     },
 };
 use uuid::Uuid;
 
+use crate::http::server::authorization::{Permission, Resource};
 use crate::http::server::{
     ApiError, AppState, Response, middleware::auth::entities::UserIdentity,
     response::PaginatedResponse,
 };
-use crate::http::server::authorization::{Permission, Resource};
 
 #[utoipa::path(
     post,
@@ -39,7 +41,11 @@ pub async fn create_message(
     let channel = request.channel_id;
     let allowed = state
         .authz
-        .check(user_identity.user_id, Permission::SendMessages, Resource::Channel(channel.0))
+        .check(
+            user_identity.user_id,
+            Permission::SendMessages,
+            Resource::Channel(channel.0),
+        )
         .await
         .map_err(|_| ApiError::InternalServerError)?;
     if !allowed {
@@ -79,7 +85,11 @@ pub async fn get_message(
     // Authorization: check user can view the channel where this message belongs
     let allowed = state
         .authz
-        .check(user_identity.user_id, Permission::ViewChannels, Resource::Channel(message.channel_id.0))
+        .check(
+            user_identity.user_id,
+            Permission::ViewChannels,
+            Resource::Channel(message.channel_id.0),
+        )
         .await
         .map_err(|_| ApiError::InternalServerError)?;
     if !allowed {
@@ -115,7 +125,11 @@ pub async fn list_messages(
     // Authorization: ensure user can view the channel before listing
     let allowed = state
         .authz
-        .check(user_identity.user_id, Permission::ViewChannels, Resource::Channel(channel.0))
+        .check(
+            user_identity.user_id,
+            Permission::ViewChannels,
+            Resource::Channel(channel.0),
+        )
         .await
         .map_err(|_| ApiError::InternalServerError)?;
     if !allowed {
