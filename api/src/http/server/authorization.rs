@@ -24,7 +24,12 @@ pub struct AuthzError(pub String);
 
 #[async_trait::async_trait]
 pub trait Authorization: Send + Sync + 'static {
-    async fn check(&self, actor: Uuid, permission: Permission, resource: Resource) -> Result<bool, AuthzError>;
+    async fn check(
+        &self,
+        actor: Uuid,
+        permission: Permission,
+        resource: Resource,
+    ) -> Result<bool, AuthzError>;
 }
 
 #[derive(Clone)]
@@ -38,7 +43,12 @@ impl DummyAuthz {
 
 #[async_trait::async_trait]
 impl Authorization for DummyAuthz {
-    async fn check(&self, _actor: Uuid, _permission: Permission, _resource: Resource) -> Result<bool, AuthzError> {
+    async fn check(
+        &self,
+        _actor: Uuid,
+        _permission: Permission,
+        _resource: Resource,
+    ) -> Result<bool, AuthzError> {
         // permissive default for local dev/tests
         Ok(true)
     }
@@ -49,7 +59,9 @@ pub type DynAuthz = Arc<dyn Authorization>;
 
 mod spicedb_impl {
     use super::*;
-        use beep_authz::{Permissions as ExtPermissions, SpiceDbConfig as ExtConfig, SpiceDbObject, SpiceDbRepository};
+    use beep_authz::{
+        Permissions as ExtPermissions, SpiceDbConfig as ExtConfig, SpiceDbObject, SpiceDbRepository,
+    };
 
     #[derive(Clone)]
     pub struct SpiceDbAuthz {
@@ -58,14 +70,16 @@ mod spicedb_impl {
 
     impl SpiceDbAuthz {
         pub async fn new(cfg: ExtConfig) -> Result<Self, AuthzError> {
-            let repo = SpiceDbRepository::new(cfg).await.map_err(|e| AuthzError(format!("spicedb init error: {}", e)))?;
+            let repo = SpiceDbRepository::new(cfg)
+                .await
+                .map_err(|e| AuthzError(format!("spicedb init error: {}", e)))?;
             Ok(Self { repo })
         }
     }
 
     fn map_permission(p: Permission) -> ExtPermissions {
         match p {
-            Permission::ViewChannels => ExtPermissions::ViewChannels,
+            Permission::ViewChannels => ExtPermissions::View,
             Permission::SendMessages => ExtPermissions::SendMessages,
             Permission::ManageMessages => ExtPermissions::ManageMessages,
             Permission::ManageChannels => ExtPermissions::ManageChannels,
@@ -74,7 +88,12 @@ mod spicedb_impl {
 
     #[async_trait::async_trait]
     impl Authorization for SpiceDbAuthz {
-        async fn check(&self, actor: Uuid, permission: Permission, resource: Resource) -> Result<bool, AuthzError> {
+        async fn check(
+            &self,
+            actor: Uuid,
+            permission: Permission,
+            resource: Resource,
+        ) -> Result<bool, AuthzError> {
             let ext_perm = map_permission(permission);
             let actor_obj = SpiceDbObject::User(actor.to_string());
 
@@ -83,7 +102,10 @@ mod spicedb_impl {
                 Resource::User(id) => SpiceDbObject::User(id.to_string()),
             };
 
-            let res = self.repo.check_permissions(resource_obj, ext_perm, actor_obj).await;
+            let res = self
+                .repo
+                .check_permissions(resource_obj, ext_perm, actor_obj)
+                .await;
             Ok(res.has_permissions())
         }
     }
@@ -95,4 +117,3 @@ mod spicedb_impl {
 // Re-export the SpiceDbConfig from the external crate directly (public)
 pub use beep_authz::config::SpiceDbConfig;
 pub use spicedb_impl::SpiceDbAuthzImpl as SpiceDbAuthz;
-

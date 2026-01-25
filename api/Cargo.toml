@@ -30,7 +30,7 @@ tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 beep-auth = "0.1"
 tower-http = { version = "0.6", features = ["cors"] }
-beep-authz = "0.3.0"
+beep-authz = "0.4.0"
 async-trait = "0.1"
 
 [dev-dependencies]
