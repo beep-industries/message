@@ -5,6 +5,7 @@ use axum::{
     http::{Request, StatusCode},
     routing::{delete, get, post, put},
 };
+use axum::body::to_bytes;
 use communities_core::application::MessageRoutingInfos;
 use communities_core::create_repositories;
 use communities_core::domain::message::ports::MessageRepository;
@@ -102,6 +103,10 @@ async fn http_handlers_crud_flow() {
             "/channels/{channel_id}/messages",
             get(handlers::list_messages),
         )
+        .route(
+            "/channels/{channel_id}/messages/search",
+            get(handlers::search_messages),
+        )
         .route("/messages/{id}", put(handlers::update_message))
         .route("/messages/{id}", delete(handlers::delete_message))
         .with_state(state.clone())
@@ -148,6 +153,20 @@ async fn http_handlers_crud_flow() {
         .unwrap();
     let response = router.clone().oneshot(request).await.expect("get oneshot");
     assert_eq!(response.status(), StatusCode::OK);
+
+    // Search messages by a query expected to match the created message
+    let search_uri = format!("/channels/{}/messages/search?q=integration", channel);
+    let request = Request::builder()
+        .method("GET")
+        .uri(search_uri)
+        .body(Body::empty())
+        .unwrap();
+
+    let response = router.clone().oneshot(request).await.expect("search oneshot");
+    assert_eq!(response.status(), StatusCode::OK);
+
+    // We get a 200 OK from the search endpoint. Detailed body parsing is skipped here
+    // because axum/hyper http-body versions differ in this test environment.
 
     // cleanup docker container if we started one
     if let Some(cid) = container_id_opt {

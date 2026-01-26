@@ -2,6 +2,7 @@ use axum::{
     Extension, Json,
     extract::{Path, Query, State},
 };
+use serde::Deserialize;
 use communities_core::domain::{
     common::GetPaginated,
     message::{
@@ -28,6 +29,7 @@ use crate::http::server::{
         (status = 201, description = "Message created successfully", body = Message),
         (status = 400, description = "Bad request - Invalid message name"),
         (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
         (status = 500, description = "Internal message error")
     )
 )]
@@ -110,6 +112,7 @@ pub async fn get_message(
     responses(
         (status = 200, description = "List of messages retrieved successfully", body = PaginatedResponse<Message>),
         (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
         (status = 500, description = "Internal message error")
     )
 )]
@@ -137,6 +140,69 @@ pub async fn list_messages(
     }
 
     let (messages, total) = state.service.list_messages(&channel, &pagination).await?;
+
+    let response = PaginatedResponse {
+        data: messages,
+        total,
+        page: pagination.page,
+    };
+
+    Ok(Response::ok(response))
+}
+
+#[derive(Deserialize)]
+pub struct SearchParams {
+    pub q: String,
+    #[serde(flatten)]
+    pub pagination: Option<GetPaginated>,
+}
+
+#[utoipa::path(
+    get,
+    path = "/channels/{channel_id}/messages/search",
+    tag = "messages",
+    params(
+        ("channel_id" = String, Path, description = "Channel ID"),
+        ("q" = String, Query, description = "Search query"),
+    ("page" = Option<u32>, Query, description = "Page number"),
+    ("limit" = Option<u32>, Query, description = "Page size")
+    ),
+    responses(
+        (status = 200, description = "Search results retrieved successfully", body = PaginatedResponse<Message>),
+        (status = 401, description = "Unauthorized"),
+        (status = 403, description = "Forbidden"),
+        (status = 500, description = "Internal message error")
+    )
+)]
+#[tracing::instrument(skip(state, user_identity, params))]
+pub async fn search_messages(
+    State(state): State<AppState>,
+    Extension(user_identity): Extension<UserIdentity>,
+    Path(channel_id): Path<Uuid>,
+    Query(params): Query<SearchParams>,
+) -> Result<Response<PaginatedResponse<Message>>, ApiError> {
+    let channel = ChannelId::from(channel_id);
+
+    // Authorization: ensure user can view the channel before searching
+    let allowed = state
+        .authz
+        .check(
+            user_identity.user_id,
+            Permission::ViewChannels,
+            Resource::Channel(channel.0),
+        )
+        .await
+        .map_err(|_| ApiError::InternalServerError)?;
+    if !allowed {
+        return Err(ApiError::Forbidden);
+    }
+
+    let pagination = params.pagination.unwrap_or_default();
+
+    let (messages, total) = state
+        .service
+        .search_messages(&channel, &params.q, &pagination)
+        .await?;
 
     let response = PaginatedResponse {
         data: messages,

@@ -14,6 +14,12 @@ pub trait MessageRepository: Send + Sync {
         channel_id: &ChannelId,
         pagination: &GetPaginated,
     ) -> Result<(Vec<Message>, TotalPaginatedElements), CoreError>;
+    async fn search_messages(
+        &self,
+        channel_id: &ChannelId,
+        query: &str,
+        pagination: &GetPaginated,
+    ) -> Result<(Vec<Message>, TotalPaginatedElements), CoreError>;
     async fn update(&self, input: UpdateMessageInput) -> Result<Message, CoreError>;
     async fn delete(&self, id: &MessageId) -> Result<(), CoreError>;
 }
@@ -90,6 +96,14 @@ pub trait MessageService: Send + Sync {
         pagination: &GetPaginated,
     ) -> Result<(Vec<Message>, TotalPaginatedElements), CoreError>;
 
+    /// Searches messages by content with pagination.
+    async fn search_messages(
+        &self,
+        channel_id: &ChannelId,
+        query: &str,
+        pagination: &GetPaginated,
+    ) -> Result<(Vec<Message>, TotalPaginatedElements), CoreError>;
+
     /// Updates an existing message with the provided input.
     ///
     /// This method validates that the message exists and that the user has permission
@@ -158,6 +172,33 @@ impl MessageRepository for MockMessageRepository {
 
         // Filter messages by channel
         let filtered: Vec<Message> = messages.iter().filter(|m| &m.channel_id == channel_id).cloned().collect();
+        let total = filtered.len() as u64;
+
+        let offset = ((pagination.page - 1) * pagination.limit) as usize;
+        let limit = pagination.limit as usize;
+
+        let paginated_messages: Vec<Message> = filtered.into_iter().skip(offset).take(limit).collect();
+
+        Ok((paginated_messages, total))
+    }
+
+    async fn search_messages(
+        &self,
+        channel_id: &ChannelId,
+        query: &str,
+        pagination: &GetPaginated,
+    ) -> Result<(Vec<Message>, TotalPaginatedElements), CoreError> {
+        let messages = self.messages.lock().unwrap();
+
+        // Filter by channel and content contains query (case-insensitive)
+        let q = query.to_lowercase();
+        let filtered: Vec<Message> = messages
+            .iter()
+            .filter(|m| &m.channel_id == channel_id)
+            .filter(|m| m.content.to_lowercase().contains(&q))
+            .cloned()
+            .collect();
+
         let total = filtered.len() as u64;
 
         let offset = ((pagination.page - 1) * pagination.limit) as usize;
