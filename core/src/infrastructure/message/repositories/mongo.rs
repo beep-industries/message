@@ -18,7 +18,7 @@ use crate::{
             events::{
                 create_message_event_from_domain,
                 delete_message_event_from_domain, 
-                event_to_bytes,
+                event_to_bytes, update_message_event_from_domain,
             },
             ports::MessageRepository,
         },
@@ -218,12 +218,19 @@ impl MessageRepository for MongoMessageRepository {
     async fn update(&self, input: UpdateMessageInput) -> Result<Message, CoreError> {
         let collection = self.collection.clone();
 
+        let channel_id = match self.find_by_id(&input.id).await? {
+            Some(msg) => msg.channel_id,
+            None => {
+                return Err(CoreError::MessageNotFound { id: input.id });
+            }
+        };
+
         let mut set = doc! {
             // store updated_at as RFC3339 string to match how `created_at` is serialized
             "updated_at": Utc::now().to_rfc3339()
         };
 
-        if let Some(content) = input.content {
+        if let Some(ref content) = input.content {
             set.insert("content", content);
         }
 
@@ -245,6 +252,23 @@ impl MessageRepository for MongoMessageRepository {
             .with_options(options)
             .await
             .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
+
+        let content_for_event = input.content.clone().unwrap_or_default();
+        let is_pinned = input.is_pinned.unwrap_or(false);
+        let event = update_message_event_from_domain(
+            input.id,
+            channel_id,
+            content_for_event,
+            is_pinned,
+            vec![], //empty vector
+        );
+
+        let event_bytes = event_to_bytes(&event)
+            .map_err(|e| CoreError::SerializationError { msg: e.to_string() })?;
+        let routing_info =
+            MessageRoutingInfo::new(self.routing_info.exchange.clone(), "message.updated");
+        let outbox_record = OutboxEventRecord::new(routing_info, event_bytes);
+        write_outbox_event(&self.db, &outbox_record).await?;
 
         updated.ok_or(CoreError::MessageNotFound { id: input.id })
     }

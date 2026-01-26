@@ -1,5 +1,7 @@
 use events_protobuf::messages_events::create_message_event::Attachment;
-use events_protobuf::messages_events::{CreateMessageEvent, DeleteMessageEvent};
+use events_protobuf::messages_events::{
+    CreateMessageEvent, DeleteMessageEvent, NotifyEntry, UpdateMessageEvent
+};
 use uuid::Uuid;
 
 use crate::domain::message::entities::{ChannelId, MessageId};
@@ -40,6 +42,22 @@ pub fn delete_message_event_from_domain(
     DeleteMessageEvent {
         message_id: message_id.to_string(),
         channel_id: channel_id.to_string(),
+    }
+}
+
+pub fn update_message_event_from_domain(
+    message_id: MessageId,
+    channel_id: ChannelId,
+    new_content: String,
+    is_pinned: bool,
+    notify_entries: Vec<NotifyEntry>,
+) -> UpdateMessageEvent {
+    UpdateMessageEvent {
+        message_id: message_id.to_string(),
+        channel_id: channel_id.to_string(),
+        content: Some(new_content),
+        is_pinned: Some(is_pinned),
+        notify_entries,
     }
 }
 
