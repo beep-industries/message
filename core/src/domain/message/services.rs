@@ -52,6 +52,22 @@ where
         Ok((messages, total))
     }
 
+    async fn search_messages(
+        &self,
+        channel_id: &crate::domain::message::entities::ChannelId,
+        query: &str,
+        pagination: &GetPaginated,
+    ) -> Result<(Vec<Message>, TotalPaginatedElements), CoreError> {
+        // @TODO Authorization: Filter messages by visibility based on user permissions
+
+        let (messages, total) = self
+            .message_repository
+            .search_messages(channel_id, query, pagination)
+            .await?;
+
+        Ok((messages, total))
+    }
+
     async fn update_message(&self, input: UpdateMessageInput) -> Result<Message, CoreError> {
         // Check if message exists
         let existing_message = self.message_repository.find_by_id(&input.id).await?;

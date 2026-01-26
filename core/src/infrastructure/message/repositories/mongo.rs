@@ -215,6 +215,49 @@ impl MessageRepository for MongoMessageRepository {
         Ok((messages, total))
     }
 
+    async fn search_messages(
+        &self,
+        channel_id: &crate::domain::message::entities::ChannelId,
+        query: &str,
+        pagination: &GetPaginated,
+    ) -> Result<(Vec<Message>, TotalPaginatedElements), CoreError> {
+        let collection = self.collection.clone();
+        let options = Self::pagination_options(pagination);
+
+        // build filter by channel_id and content regex (case-insensitive)
+        let channel_bson = Bson::Binary(Binary {
+            subtype: BinarySubtype::Generic,
+            bytes: channel_id.0.as_bytes().to_vec(),
+        });
+
+        let filter = doc! {
+            "channel_id": channel_bson,
+            "content": { "$regex": query, "$options": "i" }
+        };
+
+        let total = collection
+            .count_documents(filter.clone())
+            .await
+            .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
+
+        let mut cursor = collection
+            .find(filter)
+            .with_options(options)
+            .await
+            .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
+
+        let mut messages = Vec::new();
+        while let Some(message) = cursor
+            .try_next()
+            .await
+            .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?
+        {
+            messages.push(message);
+        }
+
+        Ok((messages, total))
+    }
+
     async fn update(&self, input: UpdateMessageInput) -> Result<Message, CoreError> {
         let collection = self.collection.clone();
 
