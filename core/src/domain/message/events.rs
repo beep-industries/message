@@ -1,6 +1,8 @@
-use events_protobuf::messages_events::CreateMessageEvent;
 use events_protobuf::messages_events::create_message_event::Attachment;
+use events_protobuf::messages_events::{CreateMessageEvent, DeleteMessageEvent};
 use uuid::Uuid;
+
+use crate::domain::message::entities::{ChannelId, MessageId};
 
 /// Convert domain entities to protobuf CreateMessageEvent
 pub fn create_message_event_from_domain(
@@ -31,11 +33,18 @@ pub fn create_message_event_from_domain(
     }
 }
 
-/// Serialize CreateMessageEvent to protobuf bytes for RabbitMQ publishing
-pub fn create_message_event_to_bytes(
-    event: &CreateMessageEvent,
-) -> Result<Vec<u8>, prost::EncodeError> {
-    use prost::Message;
+pub fn delete_message_event_from_domain(
+    message_id: MessageId,
+    channel_id: ChannelId,
+) -> DeleteMessageEvent {
+    DeleteMessageEvent {
+        message_id: message_id.to_string(),
+        channel_id: channel_id.to_string(),
+    }
+}
+
+/// Serialize any prost::Message to protobuf bytes for RabbitMQ publishing
+pub fn event_to_bytes<M: prost::Message>(event: &M) -> Result<Vec<u8>, prost::EncodeError> {
     let mut buf = Vec::new();
     event.encode(&mut buf)?;
     Ok(buf)

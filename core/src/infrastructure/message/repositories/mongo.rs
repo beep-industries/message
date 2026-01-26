@@ -15,7 +15,11 @@ use crate::{
         common::{CoreError, GetPaginated, TotalPaginatedElements},
         message::{
             entities::{InsertMessageInput, Message, MessageId, UpdateMessageInput},
-            events::{create_message_event_from_domain, create_message_event_to_bytes},
+            events::{
+                create_message_event_from_domain,
+                delete_message_event_from_domain, 
+                event_to_bytes,
+            },
             ports::MessageRepository,
         },
     },
@@ -129,8 +133,7 @@ impl MessageRepository for MongoMessageRepository {
                 .await
                 .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
 
-            // Write outbox event for message creation
-
+            // Write outbox event for message creation with dynamic routing key
             let event = create_message_event_from_domain(
                 message.id.0,
                 message.channel_id.0,
@@ -139,9 +142,11 @@ impl MessageRepository for MongoMessageRepository {
                 message.reply_to_message_id.map(|id| id.0),
                 message.attachments.clone(),
             );
-            let event_bytes = create_message_event_to_bytes(&event)
+            let event_bytes = event_to_bytes(&event)
                 .map_err(|e| CoreError::SerializationError { msg: e.to_string() })?;
-            let outbox_record = OutboxEventRecord::new(self.routing_info.clone(), event_bytes);
+            let routing_info =
+                MessageRoutingInfo::new(self.routing_info.exchange.clone(), "message.created");
+            let outbox_record = OutboxEventRecord::new(routing_info, event_bytes);
             write_outbox_event(&self.db, &outbox_record).await?;
 
             tracing::info!(
@@ -248,6 +253,14 @@ impl MessageRepository for MongoMessageRepository {
         let collection = self.collection.clone();
         let id = *id;
 
+        // get channel_id for outbox event
+        let channel_id = match self.find_by_id(&id).await? {
+            Some(msg) => msg.channel_id,
+            None => {
+                return Err(CoreError::MessageNotFound { id });
+            }
+        };
+
         let id_bson = Bson::Binary(Binary {
             subtype: BinarySubtype::Generic,
             bytes: id.0.as_bytes().to_vec(),
@@ -261,6 +274,19 @@ impl MessageRepository for MongoMessageRepository {
         if result.deleted_count == 0 {
             return Err(CoreError::MessageNotFound { id });
         }
+
+        let event = delete_message_event_from_domain(id, channel_id);
+        let event_bytes = event_to_bytes(&event)
+            .map_err(|e| CoreError::SerializationError { msg: e.to_string() })?;
+        let routing_info =
+            MessageRoutingInfo::new(self.routing_info.exchange.clone(), "message.deleted");
+        let outbox_record = OutboxEventRecord::new(routing_info, event_bytes);
+        write_outbox_event(&self.db, &outbox_record).await?;
+
+        tracing::info!(
+            message_id = %id,
+            "Message delete and outbox event written"
+        );
 
         Ok(())
     }
