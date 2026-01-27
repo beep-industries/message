@@ -116,6 +116,16 @@ rabbitmq:
   # Option 2: Provide the URL directly (required if existingSecret is not set)
   url: "amqp://rabbitmq:5672"
 
+# SpiceDB configuration (authorization)
+spicedb:
+  # SpiceDB endpoint (e.g., "spicedb.beep.svc:50051")
+  endpoint: "spicedb:50051"
+  # Option 1: Provide an existing secret name (recommended for production)
+  existingSecret: ""
+  secretKey: "token"
+  # Option 2: Provide the token directly (required if existingSecret is not set)
+  # token: ""
+
 # Message routing configuration (mounted as configmap)
 # Format: nested with exchange and routing_key
 routing:
