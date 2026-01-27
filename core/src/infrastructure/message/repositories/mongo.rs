@@ -16,9 +16,8 @@ use crate::{
         message::{
             entities::{InsertMessageInput, Message, MessageId, UpdateMessageInput},
             events::{
-                create_message_event_from_domain,
-                delete_message_event_from_domain, 
-                event_to_bytes, update_message_event_from_domain,
+                create_message_event_from_domain, delete_message_event_from_domain, event_to_bytes,
+                update_message_event_from_domain,
             },
             ports::MessageRepository,
         },
@@ -101,6 +100,17 @@ impl MessageRepository for MongoMessageRepository {
                     bytes: message.author_id.0.as_bytes().to_vec(),
                 }),
             );
+
+            // reply_to_message_id as binary if present
+            if let Some(reply_id) = &message.reply_to_message_id {
+                doc.insert(
+                    "reply_to_message_id",
+                    Bson::Binary(Binary {
+                        subtype: BinarySubtype::Generic,
+                        bytes: reply_id.0.as_bytes().to_vec(),
+                    }),
+                );
+            }
 
             // attachments is an array of documents with `id` that should also be binary
             if let Some(bson_arr) = doc.get_mut("attachments") {
