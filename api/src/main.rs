@@ -9,10 +9,11 @@ use tracing_subscriber::EnvFilter;
 
 #[tokio::main]
 async fn main() -> Result<(), ApiError> {
-    // Initialize tracing subscriber with environment filter
+    // Initialize tracing subscriber with JSON output for Loki
     // Use RUST_LOG environment variable to control log level
     // Examples: RUST_LOG=debug, RUST_LOG=api=debug, RUST_LOG=api::http::server::middleware::auth=trace
     tracing_subscriber::fmt()
+        .json()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
         )
