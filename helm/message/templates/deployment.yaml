@@ -113,6 +113,22 @@ spec:
                   name: {{ include "message.rabbitmqSecretName" . }}
                   key: url
             {{- end }}
+            # SpiceDB configuration
+            - name: SPICEDB_ENDPOINT
+              value: {{ .Values.spicedb.endpoint | quote }}
+            {{- if .Values.spicedb.existingSecret }}
+            - name: SPICEDB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.spicedb.existingSecret }}
+                  key: {{ .Values.spicedb.secretKey }}
+            {{- else if .Values.spicedb.token }}
+            - name: SPICEDB_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "message.fullname" . }}-spicedb
+                  key: token
+            {{- end }}
             # Routing config path
             - name: ROUTING_CONFIG_PATH
               value: "/config/routing.yaml"
