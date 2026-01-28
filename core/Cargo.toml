@@ -30,6 +30,7 @@ lapin = "3.7.2"
 prost = "0.14.3"
 tokio = { version = "1", features = ["sync", "time"] }
 events-protobuf = { git = "https://github.com/beep-industries/events-protobuf.git", rev = "d740df55a00020ff16398402df2a8ee715899c54" }
+reqwest = { version = "0.13.1", features = ["json", "rustls-tls"], default-features = false }
 
 [dev-dependencies]
 mockall = "0.13.1"

@@ -32,6 +32,7 @@ beep-auth = "0.1"
 tower-http = { version = "0.6", features = ["cors"] }
 beep-authz = "0.4.0"
 async-trait = "0.1"
+reqwest = "0.13.1"
 
 [dev-dependencies]
 axum-test = "18.3.0"

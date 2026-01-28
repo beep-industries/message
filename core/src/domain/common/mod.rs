@@ -29,6 +29,9 @@ pub enum CoreError {
     #[error("Database error: {msg}")]
     DatabaseError { msg: String },
 
+    #[error("Failed to parse content URL: {part}")]
+    ParseContentUrl { part: String },
+
     /// Serialization error occurred when converting event to JSON
     #[error("Serialization error: {msg}")]
     SerializationError { msg: String },
