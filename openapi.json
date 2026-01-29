@@ -320,25 +320,6 @@
   },
   "components": {
     "schemas": {
-      "Attachment": {
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "url"
-        ],
-        "properties": {
-          "id": {
-            "$ref": "#/components/schemas/AttachmentId"
-          },
-          "name": {
-            "type": "string"
-          },
-          "url": {
-            "type": "string"
-          }
-        }
-      },
       "AttachmentId": {
         "type": "string",
         "format": "uuid"
@@ -362,7 +343,7 @@
           "attachments": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/Attachment"
+              "$ref": "#/components/schemas/AttachmentId"
             }
           },
           "channel_id": {
@@ -401,7 +382,7 @@
           "attachments": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/Attachment"
+              "$ref": "#/components/schemas/AttachmentId"
             }
           },
           "author_id": {
@@ -471,7 +452,7 @@
                 "attachments": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/Attachment"
+                    "$ref": "#/components/schemas/AttachmentId"
                   }
                 },
                 "author_id": {
