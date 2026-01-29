@@ -3,10 +3,11 @@ use messages_core::domain::common::CoreError;
 use messages_core::domain::common::services::Service;
 use messages_core::domain::health::port::MockHealthRepository;
 use messages_core::domain::message::entities::{
-    Attachment, AttachmentId, AuthorId, ChannelId, InsertMessageInput, MessageId,
+    AttachmentId, AuthorId, ChannelId, InsertMessageInput, MessageId,
     UpdateMessageInput,
 };
 use messages_core::domain::message::ports::{MessageService, MockMessageRepository};
+use messages_core::domain::outbox::ports::MockOutboxEventRepository;
 use uuid::Uuid;
 
 #[tokio::test]
@@ -14,8 +15,10 @@ async fn service_create_get_update_delete_flow() {
     let repo = MockMessageRepository::new();
     let health = MockHealthRepository::new();
     let attachment = MockAttachmentRepository::new();
+    let outbox = MockOutboxEventRepository::new();
 
-    let service = Service::new(repo.clone(), health, attachment);
+
+    let service = Service::new(repo.clone(), health, attachment, outbox);
 
     let id = MessageId::from(Uuid::new_v4());
     let channel = ChannelId::from(Uuid::new_v4());
@@ -27,10 +30,7 @@ async fn service_create_get_update_delete_flow() {
         author_id: author,
         content: "service message".into(),
         reply_to_message_id: None,
-        attachments: vec![Attachment {
-            id: AttachmentId::from(Uuid::new_v4()),
-            url: "u".into(),
-        }],
+        attachments: vec![AttachmentId::from(Uuid::new_v4())],
     };
 
     // create
@@ -72,7 +72,8 @@ async fn create_invalid_message_name_rejected() {
     let repo = MockMessageRepository::new();
     let health = MockHealthRepository::new();
     let attachment = MockAttachmentRepository::new();
-    let service = Service::new(repo, health, attachment);
+    let outbox = MockOutboxEventRepository::new();
+    let service = Service::new(repo, health, attachment, outbox);
 
     let input = InsertMessageInput {
         id: MessageId::from(Uuid::new_v4()),

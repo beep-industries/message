@@ -1,6 +1,6 @@
 use messages_core::domain::common::{CoreError, GetPaginated};
 use messages_core::domain::message::entities::{
-    Attachment, AttachmentId, AuthorId, ChannelId, InsertMessageInput, MessageId,
+    AttachmentId, AuthorId, ChannelId, InsertMessageInput, MessageId,
     UpdateMessageInput,
 };
 use messages_core::domain::message::ports::{MessageRepository, MockMessageRepository};
@@ -20,10 +20,7 @@ async fn mock_repo_crud_flow() {
         author_id: author,
         content: "hello world".to_string(),
         reply_to_message_id: None,
-        attachments: vec![Attachment {
-            id: AttachmentId::from(Uuid::new_v4()),
-            url: "http://example.com/file.txt".into(),
-        }],
+        attachments: vec![AttachmentId::from(Uuid::new_v4())],
     };
 
     // Insert

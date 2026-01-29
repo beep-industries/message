@@ -77,9 +77,8 @@ async fn mongo_repository_crud_flow() {
 
     // ensure a clean database
     let _ = db.drop().await;
-
-    let routing_info = MessageRoutingInfo::new("notifications", "message.create");
-    let repo = MongoMessageRepository::new(&db, routing_info);
+    
+    let repo = MongoMessageRepository::new(&db);
 
     let id = MessageId::from(Uuid::new_v4());
     let channel = ChannelId::from(Uuid::new_v4());
@@ -91,10 +90,7 @@ async fn mongo_repository_crud_flow() {
         author_id: author,
         content: "mongo hello".to_string(),
         reply_to_message_id: None,
-        attachments: vec![Attachment {
-            id: AttachmentId::from(Uuid::new_v4()),
-            url: "u".into(),
-        }],
+        attachments: vec![AttachmentId::from(Uuid::new_v4())],
     };
 
     // Insert

@@ -1,10 +1,10 @@
 use crate::{
     domain::{
-        attachment::port::AttachmentRepository,
+        attachment::{port::AttachmentRepository},
         common::{CoreError, GetPaginated, TotalPaginatedElements, services::Service},
         health::port::HealthRepository,
         message::{
-            entities::{InsertMessageInput, Message, MessageId, UpdateMessageInput},
+            entities::{Attachment, InsertMessageInput, Message, MessageId, ReturnedMessage, UpdateMessageInput},
             events::{delete_message_event_from_domain, update_message_event_from_domain},
             ports::{MessageRepository, MessageService},
         },
@@ -84,12 +84,45 @@ where
         &self,
         channel_id: &crate::domain::message::entities::ChannelId,
         pagination: &GetPaginated,
-    ) -> Result<(Vec<Message>, TotalPaginatedElements), CoreError> {
+    ) -> Result<(Vec<ReturnedMessage>, TotalPaginatedElements), CoreError> {
         // @TODO Authorization: Filter messages by visibility based on user permissions
 
-        let (messages, total) = self.message_repository.list(channel_id, pagination).await?;
+        let (mut messages, total) = self.message_repository.list(channel_id, pagination).await?;
 
-        Ok((messages, total))
+        let mut returned_messages = Vec::with_capacity(messages.len());
+
+        for message in &mut messages {
+            let attachments = message
+                .attachments
+                .iter()
+                .map(async |attachment_id| {
+                    self.attachment_repository
+                        .get_attachment(attachment_id.to_string())
+                        .await
+                })
+                .collect::<Vec<_>>();
+
+            let resolved_attachments = futures::future::join_all(attachments)
+                .await
+                .into_iter()
+                .filter_map(Result::ok)
+                .collect::<Vec<Attachment>>();
+
+            let returned_message = ReturnedMessage {
+                id: message.id.clone(),
+                channel_id: message.channel_id.clone(),
+                author_id: message.author_id.clone(),
+                content: message.content.clone(),
+                reply_to_message_id: message.reply_to_message_id.clone(),
+                attachments: resolved_attachments,
+                is_pinned: message.is_pinned,
+                created_at: message.created_at,
+                updated_at: message.updated_at,
+            };
+            returned_messages.push(returned_message);
+        }
+
+        Ok((returned_messages, total))
     }
 
     async fn search_messages(

@@ -116,6 +116,21 @@ pub struct Message {
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct ReturnedMessage {
+    #[serde(rename = "_id")]
+    pub id: MessageId,
+    pub channel_id: ChannelId,
+    pub author_id: AuthorId,
+    pub content: String,
+    pub reply_to_message_id: Option<MessageId>,
+    pub attachments: Vec<Attachment>,
+    pub is_pinned: bool,
+
+    pub created_at: DateTime<Utc>,
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct InsertMessageInput {
     pub id: MessageId,
     pub channel_id: ChannelId,

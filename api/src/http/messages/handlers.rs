@@ -6,7 +6,7 @@ use messages_core::domain::{
     common::GetPaginated,
     message::{
         entities::{
-            AuthorId, ChannelId, CreateMessageRequest, Message, MessageId, UpdateMessageRequest,
+            AuthorId, ChannelId, CreateMessageRequest, Message, MessageId, ReturnedMessage, UpdateMessageRequest
         },
         ports::MessageService,
     },
@@ -138,7 +138,7 @@ pub async fn list_messages(
     Extension(user_identity): Extension<UserIdentity>,
     Path(channel_id): Path<Uuid>,
     Query(pagination): Query<GetPaginated>,
-) -> Result<Response<PaginatedResponse<Message>>, ApiError> {
+) -> Result<Response<PaginatedResponse<ReturnedMessage>>, ApiError> {
     let channel = ChannelId::from(channel_id);
 
     // Authorization: ensure user can view the channel before listing
