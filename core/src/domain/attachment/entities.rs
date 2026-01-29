@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PresignedUrl {
-    url: String,
+    pub url: String,
 }
 
 impl PresignedUrl {

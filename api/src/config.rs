@@ -1,6 +1,5 @@
 use clap::Parser;
 use clap::ValueEnum;
-use communities_core::application::MessageRoutingInfos;
 use std::path::PathBuf;
 
 #[derive(Clone, Parser, Debug, Default)]
@@ -35,15 +34,19 @@ pub struct Config {
     )]
     pub routing_config_path: PathBuf,
 
-    #[arg(skip)]
-    pub routing: MessageRoutingInfos,
-
     #[arg(
         long = "environment",
         env = "ENVIRONMENT",
         default_value = "development"
     )]
     pub environment: Environment,
+
+    #[arg(
+        long = "content-url",
+        env = "CONTENT_URL",
+        default_value = "http://localhost:3004"
+    )]
+    pub content_url: String,
 }
 
 #[derive(Clone, Parser, Debug, Default)]
@@ -62,16 +65,6 @@ pub struct SpiceDbConfig {
         hide_default_value = true
     )]
     pub token: String,
-}
-
-
-impl Config {
-    /// Load routing configuration from YAML file
-    pub fn load_routing(&mut self) -> Result<(), Box<dyn std::error::Error>> {
-        let yaml_content = std::fs::read_to_string(&self.routing_config_path)?;
-        self.routing = serde_yaml::from_str(&yaml_content)?;
-        Ok(())
-    }
 }
 
 #[derive(Clone, Parser, Debug, Default)]

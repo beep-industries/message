@@ -27,7 +27,6 @@ pub fn create_message_event_from_domain(
             .into_iter()
             .map(|a| Attachment {
                 id: a.id.0.to_string(),
-                name: a.name,
                 url: a.url,
             })
             .collect(),

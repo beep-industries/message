@@ -12,11 +12,16 @@ impl From<ContentVerb> for RequestSignUrl {
     }
 }
 
-pub struct PresignedUrl {
-    url: String,
+impl RequestSignUrl {
+    pub fn new(action: ContentVerb) -> Self {
+        Self {
+            action,
+            expires_in_ms: 10000,
+        }
+    }
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub enum ContentVerb {
     Put,
     Get,

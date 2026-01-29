@@ -170,11 +170,11 @@ dependencies = [
  "beep-authz",
  "chrono",
  "clap",
- "communities_core",
  "dotenvy",
  "env",
  "hyper 0.14.32",
  "jsonwebtoken 9.3.1",
+ "messages_core",
  "reqwest 0.13.1",
  "serde",
  "serde_json",
@@ -795,31 +795,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "communities_core"
-version = "0.1.0"
-dependencies = [
- "async-trait",
- "bson",
- "chrono",
- "events-protobuf",
- "futures",
- "lapin",
- "mockall",
- "mongodb",
- "prost 0.14.3",
- "prost-build 0.14.3",
- "reqwest 0.12.28",
- "serde",
- "serde_json",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
- "url",
- "utoipa",
- "uuid",
-]
-
-[[package]]
 name = "concurrent-queue"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1284,7 +1259,7 @@ dependencies = [
 [[package]]
 name = "events-protobuf"
 version = "0.1.0"
-source = "git+https://github.com/beep-industries/events-protobuf.git?rev=d740df55a00020ff16398402df2a8ee715899c54#d740df55a00020ff16398402df2a8ee715899c54"
+source = "git+https://github.com/beep-industries/events-protobuf.git?rev=08cfd46a8f275e997aa9a6618fdcf1a94d636c97#08cfd46a8f275e997aa9a6618fdcf1a94d636c97"
 dependencies = [
  "prost 0.14.3",
  "prost-build 0.14.3",
@@ -1850,7 +1825,6 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tower-service",
- "webpki-roots",
 ]
 
 [[package]]
@@ -2366,6 +2340,31 @@ name = "memchr"
 version = "2.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f52b00d39961fc5b2736ea853c9cc86238e165017a493d1d5c8eac6bdc4cc273"
+
+[[package]]
+name = "messages_core"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "bson",
+ "chrono",
+ "events-protobuf",
+ "futures",
+ "lapin",
+ "mockall",
+ "mongodb",
+ "prost 0.14.3",
+ "prost-build 0.14.3",
+ "reqwest 0.13.1",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.18",
+ "tokio",
+ "tracing",
+ "url",
+ "utoipa",
+ "uuid",
+]
 
 [[package]]
 name = "mime"
@@ -3396,8 +3395,6 @@ dependencies = [
  "native-tls",
  "percent-encoding",
  "pin-project-lite",
- "quinn",
- "rustls",
  "rustls-pki-types",
  "serde",
  "serde_json",
@@ -3405,7 +3402,6 @@ dependencies = [
  "sync_wrapper",
  "tokio",
  "tokio-native-tls",
- "tokio-rustls",
  "tower",
  "tower-http",
  "tower-service",
@@ -3413,7 +3409,6 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
- "webpki-roots",
 ]
 
 [[package]]
@@ -3442,6 +3437,8 @@ dependencies = [
  "rustls",
  "rustls-pki-types",
  "rustls-platform-verifier",
+ "serde",
+ "serde_json",
  "sync_wrapper",
  "tokio",
  "tokio-rustls",

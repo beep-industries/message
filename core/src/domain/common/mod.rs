@@ -32,6 +32,9 @@ pub enum CoreError {
     #[error("Failed to parse content URL: {part}")]
     ParseContentUrl { part: String },
 
+    #[error("Failed to get signed URL: {err}")]
+    FailedToGetSignedUrl { err: String },
+
     /// Serialization error occurred when converting event to JSON
     #[error("Serialization error: {msg}")]
     SerializationError { msg: String },

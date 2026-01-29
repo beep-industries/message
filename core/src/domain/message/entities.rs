@@ -75,6 +75,13 @@ impl std::fmt::Display for AttachmentId {
     }
 }
 
+impl From<String> for AttachmentId {
+    fn from(s: String) -> Self {
+        let uuid = Uuid::parse_str(&s).expect("Invalid UUID string");
+        AttachmentId(uuid)
+    }
+}
+
 impl From<Uuid> for AttachmentId {
     fn from(uuid: Uuid) -> Self {
         AttachmentId(uuid)
@@ -90,7 +97,6 @@ impl From<AttachmentId> for Uuid {
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct Attachment {
     pub id: AttachmentId,
-    pub name: String,
     pub url: String,
 }
 
@@ -102,7 +108,7 @@ pub struct Message {
     pub author_id: AuthorId,
     pub content: String,
     pub reply_to_message_id: Option<MessageId>,
-    pub attachments: Vec<Attachment>,
+    pub attachments: Vec<AttachmentId>,
     pub is_pinned: bool,
 
     pub created_at: DateTime<Utc>,
@@ -116,7 +122,7 @@ pub struct InsertMessageInput {
     pub author_id: AuthorId,
     pub content: String,
     pub reply_to_message_id: Option<MessageId>,
-    pub attachments: Vec<Attachment>,
+    pub attachments: Vec<AttachmentId>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
@@ -124,7 +130,7 @@ pub struct CreateMessageRequest {
     pub channel_id: ChannelId,
     pub content: String,
     pub reply_to_message_id: Option<MessageId>,
-    pub attachments: Vec<Attachment>,
+    pub attachments: Vec<AttachmentId>,
 }
 
 impl CreateMessageRequest {

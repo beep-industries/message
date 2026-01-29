@@ -2,8 +2,7 @@ use axum::{
     Extension, Json,
     extract::{Path, Query, State},
 };
-use serde::Deserialize;
-use communities_core::domain::{
+use messages_core::domain::{
     common::GetPaginated,
     message::{
         entities::{
@@ -12,6 +11,7 @@ use communities_core::domain::{
         ports::MessageService,
     },
 };
+use serde::Deserialize;
 use uuid::Uuid;
 
 use crate::http::server::authorization::{Permission, Resource};
@@ -41,7 +41,7 @@ pub async fn create_message(
 ) -> Result<Response<Message>, ApiError> {
     // Authorization: check user can send messages to this channel
     let channel = request.channel_id;
-    let allowed = state
+    let can_send = state
         .authz
         .check(
             user_identity.user_id,
@@ -50,7 +50,23 @@ pub async fn create_message(
         )
         .await
         .map_err(|_| ApiError::InternalServerError)?;
-    if !allowed {
+    
+    if !can_send {
+        return Err(ApiError::Forbidden);
+    }
+
+    let attachments = &request.attachments;
+    let can_attach = state
+            .authz
+            .check(
+                user_identity.user_id,
+                Permission::AttachFiles,
+                Resource::Channel(channel.0),
+            )
+            .await
+            .map_err(|_| ApiError::InternalServerError)?;
+
+    if !can_attach && !attachments.is_empty() {
         return Err(ApiError::Forbidden);
     }
 

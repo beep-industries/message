@@ -3,9 +3,9 @@ use tracing::{debug, error};
 
 use crate::{
     domain::{
-        attachment::port::AttachmentRepository, common::CoreError, message::entities::Attachment,
+        attachment::{entities::PresignedUrl, port::AttachmentRepository}, common::CoreError, message::entities::Attachment,
     },
-    infrastructure::attachments::repositories::entities::{ContentVerb, PresignedUrl, RequestSignUrl},
+    infrastructure::attachments::repositories::entities::{ContentVerb, RequestSignUrl},
 };
 
 #[derive(Debug, Clone)]
@@ -15,10 +15,10 @@ pub struct ReqwestAttachmentRepository {
 }
 
 impl ReqwestAttachmentRepository {
-    pub fn new(content_url: String, client: Client) -> Self {
+    pub fn new(content_url: &String) -> Self {
         Self {
-            content_url,
-            client,
+            content_url: content_url.clone(),
+            client: Client::new()
         }
     }
 }
@@ -26,11 +26,11 @@ impl ReqwestAttachmentRepository {
 impl AttachmentRepository for ReqwestAttachmentRepository {
     async fn get_signed_url(&self, id: String, verb: ContentVerb) -> Result<Attachment, CoreError> {
         let content_url =
-            Url::parse(&self.content_url).map_err(|e| CoreError::ParseContentUrl {
+            Url::parse(&self.content_url).map_err(|_| CoreError::ParseContentUrl {
                 part: self.content_url.clone(),
             })?;
 
-        let uuid = if id.is_empty() {
+        let uuid = if ContentVerb::Put == verb {
             uuid::Uuid::new_v4().to_string()
         } else {
             id
@@ -60,16 +60,22 @@ impl AttachmentRepository for ReqwestAttachmentRepository {
                 return CoreError::FailedToGetSignedUrl { err: e.to_string() };
             })?;
 
-        Ok(presigned_url)
+        let uuid = uuid::Uuid::parse_str(&uuid).map_err(|_| CoreError::ParseContentUrl {
+            part: uuid.to_string(),
+        })?;
+
+        Ok(Attachment { id: uuid.into(), url: presigned_url.url })
     }
 
-    async fn put_attachment(&self) -> Result<PresignedUrl, CoreError> {
+    async fn post_attachment(&self) -> Result<Attachment, CoreError> {
         self.get_signed_url("".to_string(), ContentVerb::Put)
             .await
     }
 
-    async fn get_attachment(&self, id: String) -> Result<PresignedUrl, CoreError> {
-        self.get_signed_url(id, ContentVerb::Get)
-            .await
+    async fn get_attachment(&self, id: String) -> Result<Attachment, CoreError> {
+        let attachment = self
+            .get_signed_url(id, ContentVerb::Get)
+            .await?;
+        Ok(attachment)
     }
 }

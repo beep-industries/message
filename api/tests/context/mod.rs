@@ -8,9 +8,9 @@ use api::{
 use axum_extra::extract::cookie::Cookie;
 use axum_test::TestServer;
 use chrono::Utc;
-use communities_core::application::MessageRoutingInfos;
-use communities_core::{application::CommunitiesRepositories, create_repositories};
 use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
+use messages_core::application::MessageRoutingInfos;
+use messages_core::{application::MessageRepositories, create_repositories};
 use test_context::AsyncTestContext;
 use uuid::Uuid;
 
@@ -20,7 +20,7 @@ pub struct TestContext {
     pub unauthenticated_router: TestServer,
     // Router without auth middleware for unauthenticated tests
     pub authenticated_router: TestServer,
-    pub repositories: CommunitiesRepositories,
+    pub repositories: MessageRepositories,
     pub jwt: JwtMaker,
 }
 

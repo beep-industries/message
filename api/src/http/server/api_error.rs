@@ -3,7 +3,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-use communities_core::domain::common::CoreError;
+use messages_core::domain::common::CoreError;
 use serde::Serialize;
 use thiserror::Error;
 

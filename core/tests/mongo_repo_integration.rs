@@ -1,11 +1,11 @@
-use communities_core::domain::common::GetPaginated;
-use communities_core::domain::message::entities::{
+use messages_core::domain::common::GetPaginated;
+use messages_core::domain::message::entities::{
     Attachment, AttachmentId, AuthorId, ChannelId, InsertMessageInput, MessageId,
     UpdateMessageInput,
 };
-use communities_core::domain::message::ports::MessageRepository;
-use communities_core::infrastructure::MessageRoutingInfo;
-use communities_core::infrastructure::message::repositories::mongo::MongoMessageRepository;
+use messages_core::domain::message::ports::MessageRepository;
+use messages_core::infrastructure::MessageRoutingInfo;
+use messages_core::infrastructure::message::repositories::mongo::MongoMessageRepository;
 use mongodb::{Client, options::ClientOptions};
 use uuid::Uuid;
 
@@ -93,7 +93,6 @@ async fn mongo_repository_crud_flow() {
         reply_to_message_id: None,
         attachments: vec![Attachment {
             id: AttachmentId::from(Uuid::new_v4()),
-            name: "f".into(),
             url: "u".into(),
         }],
     };
