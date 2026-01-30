@@ -40,7 +40,7 @@ impl AttachmentRepository for MockAttachmentRepository {
         _verb: ContentVerb,
     ) -> impl Future<Output = Result<Attachment, CoreError>> + Send {
         let attachment = Attachment {
-            id: AttachmentId::from(id),
+            id: AttachmentId::try_from(id).expect("Invalid UUID string"),
             url: "http://example.com/signed_url".to_string(),
         };
         async move { Ok(attachment) }
@@ -49,7 +49,7 @@ impl AttachmentRepository for MockAttachmentRepository {
     fn post_attachment(&self) -> impl Future<Output = Result<Attachment, CoreError>> + Send {
         let id = uuid::Uuid::new_v4().to_string();
         let attachment = Attachment {
-            id: AttachmentId::from(id),
+            id: AttachmentId::try_from(id).expect("Invalid UUID string"),
             url: "http://example.com/put_signed_url".to_string(),
         };
         async move { Ok(attachment) }
@@ -60,8 +60,8 @@ impl AttachmentRepository for MockAttachmentRepository {
         id: String,
     ) -> impl Future<Output = Result<Attachment, CoreError>> + Send {
         let attachment = Attachment {
-            id: AttachmentId::from(id.clone()),
-            url: format!("http://example.com/attachment/{}", AttachmentId::from(id)),
+            id: AttachmentId::try_from(id.clone()).expect("Invalid UUID string"),
+            url: format!("http://example.com/attachment/{}", AttachmentId::try_from(id).expect("Invalid UUID string")),
         };
         async move { Ok(attachment) }
     }

@@ -75,10 +75,12 @@ impl std::fmt::Display for AttachmentId {
     }
 }
 
-impl From<String> for AttachmentId {
-    fn from(s: String) -> Self {
-        let uuid = Uuid::parse_str(&s).expect("Invalid UUID string");
-        AttachmentId(uuid)
+impl TryFrom<String> for AttachmentId {
+    type Error = uuid::Error;
+
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        let uuid = Uuid::parse_str(&s)?;
+        Ok(AttachmentId(uuid))
     }
 }
 
