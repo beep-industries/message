@@ -59,7 +59,7 @@ impl MessageRepository for MongoMessageRepository {
             author_id: input.author_id,
             content: input.content,
             reply_to_message_id: input.reply_to_message_id,
-            attachments: input.attachments,
+            attachments: input.attachments.clone(),
             is_pinned: false,
             created_at: now,
             updated_at: None,
@@ -105,23 +105,26 @@ impl MessageRepository for MongoMessageRepository {
                 );
             }
 
-            // attachments is an array of documents with `id` that should also be binary
-            if let Some(bson_arr) = doc.get_mut("attachments") {
-                if let Bson::Array(arr) = bson_arr {
-                    for item in arr.iter_mut() {
-                        if let Bson::Document(adoc) = item {
-                            if let Some(Bson::String(s)) = adoc.get("id") {
-                                // parse string uuid and insert binary
-                                if let Ok(u) = Uuid::parse_str(s) {
-                                    adoc.insert(
-                                        "id",
-                                        Bson::Binary(Binary {
-                                            subtype: BinarySubtype::Generic,
-                                            bytes: u.as_bytes().to_vec(),
-                                        }),
-                                    );
-                                }
-                            }
+            // attachments as array of binary UUIDs
+            if let Some(Bson::Array(arr)) = doc.get_mut("attachments") {
+                for (_, item) in arr.iter_mut().enumerate() {
+                    if let Bson::String(s) = item {
+                        if let Ok(u) = Uuid::parse_str(s) {
+                            *item = Bson::Binary(Binary {
+                                subtype: BinarySubtype::Generic,
+                                bytes: u.as_bytes().to_vec(),
+                            });
+                        }
+                    } else if let Bson::Binary(_) = item {
+                        // already binary, do nothing
+                    } else {
+                        // fallback: try to convert AttachmentId Display
+                        let s = item.to_string();
+                        if let Ok(u) = Uuid::parse_str(&s) {
+                            *item = Bson::Binary(Binary {
+                                subtype: BinarySubtype::Generic,
+                                bytes: u.as_bytes().to_vec(),
+                            });
                         }
                     }
                 }

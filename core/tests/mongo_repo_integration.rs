@@ -1,10 +1,9 @@
 use messages_core::domain::common::GetPaginated;
 use messages_core::domain::message::entities::{
-    Attachment, AttachmentId, AuthorId, ChannelId, InsertMessageInput, MessageId,
+    AttachmentId, AuthorId, ChannelId, InsertMessageInput, MessageId,
     UpdateMessageInput,
 };
 use messages_core::domain::message::ports::MessageRepository;
-use messages_core::infrastructure::MessageRoutingInfo;
 use messages_core::infrastructure::message::repositories::mongo::MongoMessageRepository;
 use mongodb::{Client, options::ClientOptions};
 use uuid::Uuid;

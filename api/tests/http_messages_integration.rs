@@ -1,5 +1,4 @@
 use api as crate_api;
-use axum::body::to_bytes;
 use axum::{
     Router,
     body::Body,
@@ -11,7 +10,6 @@ use crate_api::http::server::app_state::AppState;
 use crate_api::http::server::middleware::auth::entities::UserIdentity;
 use messages_core::create_repositories;
 use messages_core::domain::message::ports::MessageRepository;
-use messages_core::infrastructure::MessageRoutingInfo;
 use serde_json::json;
 use tower::util::ServiceExt;
 use tower_http::add_extension::AddExtensionLayer;
