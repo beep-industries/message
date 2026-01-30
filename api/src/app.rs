@@ -23,6 +23,7 @@ use crate::{
         },
     },
     message_routes,
+    http::attachments::routes::attachments_routes
 };
 
 #[derive(OpenApi)]
@@ -136,6 +137,7 @@ impl App {
 
         let (app_router, mut api) = OpenApiRouter::<AppState>::new()
             .merge(message_routes())
+            .merge(attachments_routes())
             .route_layer(from_extractor_with_state::<
                 AuthMiddleware,
                 KeycloakAuthRepository,
