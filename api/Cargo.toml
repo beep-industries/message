@@ -11,7 +11,7 @@ tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 serde_yaml = "0.9"
-communities-core = { path = "../core", package = "communities_core" }
+messages_core = { path = "../core", package = "messages_core" }
 sqlx = { version = "0.8", features = ["postgres", "runtime-tokio", "uuid"] }
 chrono = { version = "0.4", features = ["serde"] }
 uuid = { version = "1.18", features = ["serde", "v4"] }
@@ -32,6 +32,7 @@ beep-auth = "0.1"
 tower-http = { version = "0.6", features = ["cors"] }
 beep-authz = "0.4.0"
 async-trait = "0.1"
+reqwest = "0.13.1"
 
 [dev-dependencies]
 axum-test = "18.3.0"

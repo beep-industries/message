@@ -27,10 +27,7 @@ async fn main() -> Result<(), ApiError> {
         info!("No .env file found, using system environment variables");
     }
 
-    let mut config: Config = Config::parse();
-    config.load_routing().map_err(|e| ApiError::StartupError {
-        msg: format!("Failed to load routing config: {}", e),
-    })?;
+    let config: Config = Config::parse();
     trace!("...config and env vars loaded.");
     let app = App::new(config).await?;
     info!("Starting the service");

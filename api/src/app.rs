@@ -1,7 +1,7 @@
 use axum::http::{HeaderValue, Method, header};
 use axum::middleware::from_extractor_with_state;
 use beep_auth::KeycloakAuthRepository;
-use communities_core::{
+use messages_core::{
     create_repositories,
     infrastructure::{OutboxRelayService, RabbitMqPublisher},
 };
@@ -23,6 +23,7 @@ use crate::{
         },
     },
     message_routes,
+    http::attachments::routes::attachments_routes
 };
 
 #[derive(OpenApi)]
@@ -48,7 +49,7 @@ impl App {
         let repositories = create_repositories(
             &config.database.mongo_uri,
             &config.database.mongo_db_name,
-            &config.routing,
+            &config.content_url,
         )
         .await
         .map_err(|e| ApiError::StartupError {
@@ -81,8 +82,7 @@ impl App {
         });
 
         // ---------- Application service ----------
-        let service: communities_core::application::CommunitiesService =
-            repositories.clone().into();
+        let service: messages_core::application::MessagesService = repositories.clone().into();
 
         // ---------- Authorization (SpiceDB) ----------
         let authz = {
@@ -137,6 +137,7 @@ impl App {
 
         let (app_router, mut api) = OpenApiRouter::<AppState>::new()
             .merge(message_routes())
+            .merge(attachments_routes())
             .route_layer(from_extractor_with_state::<
                 AuthMiddleware,
                 KeycloakAuthRepository,

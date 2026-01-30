@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::domain::{
     common::{CoreError, GetPaginated, TotalPaginatedElements},
-    message::entities::{InsertMessageInput, ChannelId, Message, MessageId, UpdateMessageInput},
+    message::entities::{ChannelId, InsertMessageInput, Message, MessageId, ReturnedMessage, UpdateMessageInput},
 };
 
 #[async_trait::async_trait]
@@ -94,7 +94,7 @@ pub trait MessageService: Send + Sync {
         &self,
         channel_id: &ChannelId,
         pagination: &GetPaginated,
-    ) -> Result<(Vec<Message>, TotalPaginatedElements), CoreError>;
+    ) -> Result<(Vec<ReturnedMessage>, TotalPaginatedElements), CoreError>;
 
     /// Searches messages by content with pagination.
     async fn search_messages(

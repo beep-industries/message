@@ -7,7 +7,7 @@ use uuid::Uuid;
 
 use crate::{
     domain::common::CoreError,
-    infrastructure::outbox::event::{MessageRouter, OutboxEventRecord},
+    infrastructure::{outbox::{event::{MessageRouter, OutboxEventRecord}}},
 };
 
 const OUTBOX_COLLECTION: &str = "outbox_messages";
@@ -26,6 +26,8 @@ struct OutboxDocument {
 
 pub async fn write_outbox_event<TRouter>(
     db: &Database,
+    exchange: &str,
+    routing_key: &str,
     event: &OutboxEventRecord<TRouter>,
 ) -> Result<Uuid, CoreError>
 where
@@ -33,8 +35,8 @@ where
 {
     let doc = OutboxDocument {
         id: event.id,
-        exchange_name: event.router.exchange_name().to_string(),
-        routing_key: event.router.routing_key().to_string(),
+        exchange_name: exchange.to_string(),
+        routing_key: routing_key.to_string(),
         payload: Binary {
             subtype: mongodb::bson::spec::BinarySubtype::Generic,
             bytes: event.payload.clone(),

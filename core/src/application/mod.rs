@@ -3,27 +3,35 @@ use mongodb::{Client as MongoClient, options::ClientOptions};
 use crate::{
     domain::common::{CoreError, services::Service},
     infrastructure::{
-        MessageRoutingInfo,
-    health::repositories::mongo::MongoHealthRepository,
+        attachments::repositories::reqwest::ReqwestAttachmentRepository,
+        health::repositories::mongo::MongoHealthRepository,
         message::repositories::mongo::MongoMessageRepository,
+        outbox::mongo::MongoOutboxEventRepository,
     },
 };
 
 /// Concrete service type
-pub type CommunitiesService = Service<MongoMessageRepository, MongoHealthRepository>;
+pub type MessagesService = Service<
+    MongoMessageRepository,
+    MongoHealthRepository,
+    ReqwestAttachmentRepository,
+    MongoOutboxEventRepository,
+>;
 
 #[derive(Clone)]
-pub struct CommunitiesRepositories {
+pub struct MessageRepositories {
     pub message_repository: MongoMessageRepository,
     pub health_repository: MongoHealthRepository,
+    pub attachment_repository: ReqwestAttachmentRepository,
+    pub outbox_repository: MongoOutboxEventRepository,
 }
 
-#[tracing::instrument(skip(mongo_uri, mongo_db_name, routing_infos))]
+#[tracing::instrument(skip(mongo_uri, mongo_db_name))]
 pub async fn create_repositories(
     mongo_uri: &str,
     mongo_db_name: &str,
-    routing_infos: &MessageRoutingInfos,
-) -> Result<CommunitiesRepositories, CoreError> {
+    client_url: &String,
+) -> Result<MessageRepositories, CoreError> {
     tracing::info!(db = %mongo_db_name, "creating mongodb client");
     let mongo_options = ClientOptions::parse(mongo_uri)
         .await
@@ -34,48 +42,45 @@ pub async fn create_repositories(
 
     let mongo_db = mongo_client.database(mongo_db_name);
 
-    let message_repository = MongoMessageRepository::new(&mongo_db, routing_infos.create_message.clone());
+    let message_repository = MongoMessageRepository::new(&mongo_db);
 
     let health_repository = MongoHealthRepository::new(&mongo_db);
 
+    let attachment_repository = ReqwestAttachmentRepository::new(client_url);
+
+    let outbox_repository = MongoOutboxEventRepository::new(mongo_db.clone());
+
     tracing::info!("repositories created");
 
-    Ok(CommunitiesRepositories {
+    Ok(MessageRepositories {
         message_repository,
         health_repository,
+        attachment_repository,
+        outbox_repository,
     })
 }
 
-impl From<CommunitiesRepositories> for CommunitiesService {
-    fn from(repos: CommunitiesRepositories) -> Self {
-        Service::new(repos.message_repository, repos.health_repository)
+impl From<MessageRepositories> for MessagesService {
+    fn from(repos: MessageRepositories) -> Self {
+        Service::new(
+            repos.message_repository,
+            repos.health_repository,
+            repos.attachment_repository,
+            repos.outbox_repository,
+        )
     }
 }
 
-impl CommunitiesRepositories {
+impl MessageRepositories {
     pub async fn shutdown(&self) {
         tracing::info!("closing Mongo DB connection");
         // MongoDB driver shuts down automatically
     }
 }
 
-impl CommunitiesService {
+impl MessagesService {
     pub async fn shutdown(&self) {
         tracing::info!("closing Mongo DB connection");
         // MongoDB driver shuts down automatically
     }
-}
-
-/// Configuration for message routing information across different event types.
-///
-/// This struct holds the routing configuration for various outbox events
-/// that need to be published to a message broker. Each field represents
-/// the routing information (exchange name and routing key) for a specific
-/// type of domain event.
-#[derive(Clone, Debug, Default, serde::Deserialize, serde::Serialize)]
-pub struct MessageRoutingInfos {
-    /// Routing information for message creation events
-    pub create_message: MessageRoutingInfo,
-    /// Routing information for message deletion events
-    pub delete_message: MessageRoutingInfo,
 }

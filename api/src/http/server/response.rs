@@ -3,7 +3,7 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse, Response as AxumResponse},
 };
-use communities_core::domain::common::TotalPaginatedElements;
+use messages_core::domain::common::TotalPaginatedElements;
 use serde::Serialize;
 use utoipa::ToSchema;
 

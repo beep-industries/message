@@ -16,6 +16,7 @@ pub enum Permission {
     SendMessages,
     ManageMessages,
     ManageChannels,
+    AttachFiles
 }
 
 /// Simple error type for authz failures.
@@ -83,6 +84,7 @@ mod spicedb_impl {
             Permission::SendMessages => ExtPermissions::SendMessages,
             Permission::ManageMessages => ExtPermissions::ManageMessages,
             Permission::ManageChannels => ExtPermissions::ManageChannels,
+            Permission::AttachFiles => ExtPermissions::AttachFiles,
         }
     }
 

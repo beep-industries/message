@@ -14,7 +14,7 @@ pub fn message_routes() -> OpenApiRouter<AppState> {
         .routes(routes!(create_message))
         .routes(routes!(get_message))
         .routes(routes!(list_messages))
-            .routes(routes!(search_messages))
+        .routes(routes!(search_messages))
         .routes(routes!(update_message))
         .routes(routes!(delete_message))
 }

@@ -3,7 +3,7 @@ use chrono::Utc;
 use serde::Serialize;
 use utoipa::ToSchema;
 
-use communities_core::domain::health::port::HealthService;
+use messages_core::domain::health::port::HealthService;
 
 use crate::http::server::{ApiError, AppState, Response};
 

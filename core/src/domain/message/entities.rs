@@ -75,6 +75,15 @@ impl std::fmt::Display for AttachmentId {
     }
 }
 
+impl TryFrom<String> for AttachmentId {
+    type Error = uuid::Error;
+
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        let uuid = Uuid::parse_str(&s)?;
+        Ok(AttachmentId(uuid))
+    }
+}
+
 impl From<Uuid> for AttachmentId {
     fn from(uuid: Uuid) -> Self {
         AttachmentId(uuid)
@@ -90,12 +99,26 @@ impl From<AttachmentId> for Uuid {
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct Attachment {
     pub id: AttachmentId,
-    pub name: String,
     pub url: String,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
 pub struct Message {
+    #[serde(rename = "_id")]
+    pub id: MessageId,
+    pub channel_id: ChannelId,
+    pub author_id: AuthorId,
+    pub content: String,
+    pub reply_to_message_id: Option<MessageId>,
+    pub attachments: Vec<AttachmentId>,
+    pub is_pinned: bool,
+
+    pub created_at: DateTime<Utc>,
+    pub updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
+pub struct ReturnedMessage {
     #[serde(rename = "_id")]
     pub id: MessageId,
     pub channel_id: ChannelId,
@@ -116,7 +139,7 @@ pub struct InsertMessageInput {
     pub author_id: AuthorId,
     pub content: String,
     pub reply_to_message_id: Option<MessageId>,
-    pub attachments: Vec<Attachment>,
+    pub attachments: Vec<AttachmentId>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, ToSchema)]
@@ -124,7 +147,7 @@ pub struct CreateMessageRequest {
     pub channel_id: ChannelId,
     pub content: String,
     pub reply_to_message_id: Option<MessageId>,
-    pub attachments: Vec<Attachment>,
+    pub attachments: Vec<AttachmentId>,
 }
 
 impl CreateMessageRequest {
