@@ -1,16 +1,24 @@
-use communities_core::domain::message::entities::{InsertMessageInput, MessageId, ChannelId, AuthorId, Attachment, AttachmentId, UpdateMessageInput};
-use communities_core::domain::message::ports::{MockMessageRepository, MessageService};
-use communities_core::domain::health::port::MockHealthRepository;
-use communities_core::domain::common::CoreError;
-use communities_core::domain::common::services::Service;
+use messages_core::domain::attachment::port::MockAttachmentRepository;
+use messages_core::domain::common::CoreError;
+use messages_core::domain::common::services::Service;
+use messages_core::domain::health::port::MockHealthRepository;
+use messages_core::domain::message::entities::{
+    AttachmentId, AuthorId, ChannelId, InsertMessageInput, MessageId,
+    UpdateMessageInput,
+};
+use messages_core::domain::message::ports::{MessageService, MockMessageRepository};
+use messages_core::domain::outbox::ports::MockOutboxEventRepository;
 use uuid::Uuid;
 
 #[tokio::test]
 async fn service_create_get_update_delete_flow() {
     let repo = MockMessageRepository::new();
     let health = MockHealthRepository::new();
+    let attachment = MockAttachmentRepository::new();
+    let outbox = MockOutboxEventRepository::new();
 
-    let service = Service::new(repo.clone(), health);
+
+    let service = Service::new(repo.clone(), health, attachment, outbox);
 
     let id = MessageId::from(Uuid::new_v4());
     let channel = ChannelId::from(Uuid::new_v4());
@@ -22,11 +30,14 @@ async fn service_create_get_update_delete_flow() {
         author_id: author,
         content: "service message".into(),
         reply_to_message_id: None,
-        attachments: vec![Attachment { id: AttachmentId::from(Uuid::new_v4()), name: "a".into(), url: "u".into() }],
+        attachments: vec![AttachmentId::from(Uuid::new_v4())],
     };
 
     // create
-    let created = service.create_message(input.clone()).await.expect("create should work");
+    let created = service
+        .create_message(input.clone())
+        .await
+        .expect("create should work");
     assert_eq!(created.id, id);
 
     // get
@@ -34,12 +45,22 @@ async fn service_create_get_update_delete_flow() {
     assert_eq!(got.content, "service message");
 
     // update
-    let update = UpdateMessageInput { id, content: Some("changed".into()), is_pinned: Some(false) };
-    let updated = service.update_message(update).await.expect("update should work");
+    let update = UpdateMessageInput {
+        id,
+        content: Some("changed".into()),
+        is_pinned: Some(false),
+    };
+    let updated = service
+        .update_message(update)
+        .await
+        .expect("update should work");
     assert_eq!(updated.content, "changed");
 
     // delete
-    service.delete_message(&id).await.expect("delete should work");
+    service
+        .delete_message(&id)
+        .await
+        .expect("delete should work");
 
     // get after delete -> not found
     let res = service.get_message(&id).await;
@@ -50,7 +71,9 @@ async fn service_create_get_update_delete_flow() {
 async fn create_invalid_message_name_rejected() {
     let repo = MockMessageRepository::new();
     let health = MockHealthRepository::new();
-    let service = Service::new(repo, health);
+    let attachment = MockAttachmentRepository::new();
+    let outbox = MockOutboxEventRepository::new();
+    let service = Service::new(repo, health, attachment, outbox);
 
     let input = InsertMessageInput {
         id: MessageId::from(Uuid::new_v4()),

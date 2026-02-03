@@ -1,11 +1,10 @@
-use communities_core::domain::common::GetPaginated;
-use communities_core::domain::message::entities::{
-    Attachment, AttachmentId, AuthorId, ChannelId, InsertMessageInput, MessageId,
+use messages_core::domain::common::GetPaginated;
+use messages_core::domain::message::entities::{
+    AttachmentId, AuthorId, ChannelId, InsertMessageInput, MessageId,
     UpdateMessageInput,
 };
-use communities_core::domain::message::ports::MessageRepository;
-use communities_core::infrastructure::MessageRoutingInfo;
-use communities_core::infrastructure::message::repositories::mongo::MongoMessageRepository;
+use messages_core::domain::message::ports::MessageRepository;
+use messages_core::infrastructure::message::repositories::mongo::MongoMessageRepository;
 use mongodb::{Client, options::ClientOptions};
 use uuid::Uuid;
 
@@ -77,9 +76,8 @@ async fn mongo_repository_crud_flow() {
 
     // ensure a clean database
     let _ = db.drop().await;
-
-    let routing_info = MessageRoutingInfo::new("notifications", "message.create");
-    let repo = MongoMessageRepository::new(&db, routing_info);
+    
+    let repo = MongoMessageRepository::new(&db);
 
     let id = MessageId::from(Uuid::new_v4());
     let channel = ChannelId::from(Uuid::new_v4());
@@ -91,11 +89,7 @@ async fn mongo_repository_crud_flow() {
         author_id: author,
         content: "mongo hello".to_string(),
         reply_to_message_id: None,
-        attachments: vec![Attachment {
-            id: AttachmentId::from(Uuid::new_v4()),
-            name: "f".into(),
-            url: "u".into(),
-        }],
+        attachments: vec![AttachmentId::from(Uuid::new_v4())],
     };
 
     // Insert

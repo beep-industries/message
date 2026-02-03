@@ -15,14 +15,9 @@ use crate::{
         common::{CoreError, GetPaginated, TotalPaginatedElements},
         message::{
             entities::{InsertMessageInput, Message, MessageId, UpdateMessageInput},
-            events::{
-                create_message_event_from_domain, delete_message_event_from_domain, event_to_bytes,
-                update_message_event_from_domain,
-            },
             ports::MessageRepository,
         },
     },
-    infrastructure::{MessageRoutingInfo, outbox::OutboxEventRecord, write_outbox_event},
 };
 use uuid::Uuid;
 
@@ -30,15 +25,13 @@ use uuid::Uuid;
 pub struct MongoMessageRepository {
     collection: Collection<Message>,
     pub db: Database,
-    routing_info: MessageRoutingInfo,
 }
 
 impl MongoMessageRepository {
-    pub fn new(db: &Database, routing_info: MessageRoutingInfo) -> Self {
+    pub fn new(db: &Database) -> Self {
         Self {
             collection: db.collection::<Message>("messages"),
             db: db.clone(),
-            routing_info,
         }
     }
 
@@ -66,7 +59,7 @@ impl MessageRepository for MongoMessageRepository {
             author_id: input.author_id,
             content: input.content,
             reply_to_message_id: input.reply_to_message_id,
-            attachments: input.attachments,
+            attachments: input.attachments.clone(),
             is_pinned: false,
             created_at: now,
             updated_at: None,
@@ -112,23 +105,26 @@ impl MessageRepository for MongoMessageRepository {
                 );
             }
 
-            // attachments is an array of documents with `id` that should also be binary
-            if let Some(bson_arr) = doc.get_mut("attachments") {
-                if let Bson::Array(arr) = bson_arr {
-                    for item in arr.iter_mut() {
-                        if let Bson::Document(adoc) = item {
-                            if let Some(Bson::String(s)) = adoc.get("id") {
-                                // parse string uuid and insert binary
-                                if let Ok(u) = Uuid::parse_str(s) {
-                                    adoc.insert(
-                                        "id",
-                                        Bson::Binary(Binary {
-                                            subtype: BinarySubtype::Generic,
-                                            bytes: u.as_bytes().to_vec(),
-                                        }),
-                                    );
-                                }
-                            }
+            // attachments as array of binary UUIDs
+            if let Some(Bson::Array(arr)) = doc.get_mut("attachments") {
+                for (_, item) in arr.iter_mut().enumerate() {
+                    if let Bson::String(s) = item {
+                        if let Ok(u) = Uuid::parse_str(s) {
+                            *item = Bson::Binary(Binary {
+                                subtype: BinarySubtype::Generic,
+                                bytes: u.as_bytes().to_vec(),
+                            });
+                        }
+                    } else if let Bson::Binary(_) = item {
+                        // already binary, do nothing
+                    } else {
+                        // fallback: try to convert AttachmentId Display
+                        let s = item.to_string();
+                        if let Ok(u) = Uuid::parse_str(&s) {
+                            *item = Bson::Binary(Binary {
+                                subtype: BinarySubtype::Generic,
+                                bytes: u.as_bytes().to_vec(),
+                            });
                         }
                     }
                 }
@@ -142,27 +138,6 @@ impl MessageRepository for MongoMessageRepository {
                 .insert_one(doc)
                 .await
                 .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
-
-            // Write outbox event for message creation with dynamic routing key
-            let event = create_message_event_from_domain(
-                message.id.0,
-                message.channel_id.0,
-                message.author_id.0,
-                message.content.clone(),
-                message.reply_to_message_id.map(|id| id.0),
-                message.attachments.clone(),
-            );
-            let event_bytes = event_to_bytes(&event)
-                .map_err(|e| CoreError::SerializationError { msg: e.to_string() })?;
-            let routing_info =
-                MessageRoutingInfo::new(self.routing_info.exchange.clone(), "message.created");
-            let outbox_record = OutboxEventRecord::new(routing_info, event_bytes);
-            write_outbox_event(&self.db, &outbox_record).await?;
-
-            tracing::info!(
-                message_id = %message.id,
-                "Message create and outbox event written"
-            );
         } else {
             return Err(CoreError::DatabaseError {
                 msg: "Failed to convert message to BSON document".into(),
@@ -271,13 +246,6 @@ impl MessageRepository for MongoMessageRepository {
     async fn update(&self, input: UpdateMessageInput) -> Result<Message, CoreError> {
         let collection = self.collection.clone();
 
-        let channel_id = match self.find_by_id(&input.id).await? {
-            Some(msg) => msg.channel_id,
-            None => {
-                return Err(CoreError::MessageNotFound { id: input.id });
-            }
-        };
-
         let mut set = doc! {
             // store updated_at as RFC3339 string to match how `created_at` is serialized
             "updated_at": Utc::now().to_rfc3339()
@@ -306,37 +274,12 @@ impl MessageRepository for MongoMessageRepository {
             .await
             .map_err(|e| CoreError::DatabaseError { msg: e.to_string() })?;
 
-        let content_for_event = input.content.clone().unwrap_or_default();
-        let is_pinned = input.is_pinned.unwrap_or(false);
-        let event = update_message_event_from_domain(
-            input.id,
-            channel_id,
-            content_for_event,
-            is_pinned,
-            vec![], //empty vector
-        );
-
-        let event_bytes = event_to_bytes(&event)
-            .map_err(|e| CoreError::SerializationError { msg: e.to_string() })?;
-        let routing_info =
-            MessageRoutingInfo::new(self.routing_info.exchange.clone(), "message.updated");
-        let outbox_record = OutboxEventRecord::new(routing_info, event_bytes);
-        write_outbox_event(&self.db, &outbox_record).await?;
-
         updated.ok_or(CoreError::MessageNotFound { id: input.id })
     }
 
     async fn delete(&self, id: &MessageId) -> Result<(), CoreError> {
         let collection = self.collection.clone();
         let id = *id;
-
-        // get channel_id for outbox event
-        let channel_id = match self.find_by_id(&id).await? {
-            Some(msg) => msg.channel_id,
-            None => {
-                return Err(CoreError::MessageNotFound { id });
-            }
-        };
 
         let id_bson = Bson::Binary(Binary {
             subtype: BinarySubtype::Generic,
@@ -351,19 +294,6 @@ impl MessageRepository for MongoMessageRepository {
         if result.deleted_count == 0 {
             return Err(CoreError::MessageNotFound { id });
         }
-
-        let event = delete_message_event_from_domain(id, channel_id);
-        let event_bytes = event_to_bytes(&event)
-            .map_err(|e| CoreError::SerializationError { msg: e.to_string() })?;
-        let routing_info =
-            MessageRoutingInfo::new(self.routing_info.exchange.clone(), "message.deleted");
-        let outbox_record = OutboxEventRecord::new(routing_info, event_bytes);
-        write_outbox_event(&self.db, &outbox_record).await?;
-
-        tracing::info!(
-            message_id = %id,
-            "Message delete and outbox event written"
-        );
 
         Ok(())
     }

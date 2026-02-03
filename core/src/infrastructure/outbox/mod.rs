@@ -7,6 +7,8 @@
 
 mod event;
 mod writer;
+pub mod mongo;
+pub mod entities;
 
 pub use event::{MessageRouter, MessageRoutingInfo, OutboxEventRecord};
 pub use writer::write_outbox_event;

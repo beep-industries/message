@@ -19,7 +19,7 @@ It will handle:
 Launch postgres:
 
 ```bash
-docker compose up -d mongodb 
+docker compose up -d mongodb
 ```
 
 Create the .env file to let the Mongo client know how to connect to the database:
@@ -90,7 +90,7 @@ cargo test
 - Run a single test binary (example):
 
 ```bash
-cargo test -p communities_core --test mongo_repo_integration -- --nocapture
+cargo test -p messages_core --test mongo_repo_integration -- --nocapture
 ```
 
 Integration tests that exercise the MongoDB-backed repository will automatically try to start a temporary
@@ -108,7 +108,7 @@ Example (use local Mongo instance):
 ```bash
 export MONGO_TEST_URI='mongodb://localhost:27017'
 export MONGO_TEST_DB='message_test_db'
-cargo test -p communities_core --test mongo_repo_integration -- --nocapture
+cargo test -p messages_core --test mongo_repo_integration -- --nocapture
 ```
 
 If Docker is not available and `MONGO_TEST_URI` is not set, the Mongo integration test will be skipped so the
