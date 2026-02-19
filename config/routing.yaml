@@ -1,0 +1,6 @@
+# Message Service Routing Configuration
+# This file defines routing keys for message events
+
+message_created: "message.created"
+message_updated: "message.updated"
+message_deleted: "message.deleted"
