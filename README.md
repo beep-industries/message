@@ -121,3 +121,11 @@ Where tests live:
 
 If you run into permission errors when starting Docker containers from tests, make sure your user is in the
 `docker` group or run the tests from an environment where the Docker daemon is reachable.
+
+## Project Governance
+
+[License](https://github.com/beep-industries/.github/blob/main/LICENSE)
+
+[Contributing Guide](https://github.com/beep-industries/.github/blob/main/CONTRIBUTING.md)
+
+[Code of Conduct](https://github.com/beep-industries/.github/blob/main/CODE_OF_CONDUCT.md)
